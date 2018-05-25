@@ -1,30 +1,65 @@
-# Config file for automatic testing at travis-ci.org
+stages:
+    - test-python
+    - build-docs
+    #- pypi
 
-language: python
+python3_5_unit_test:
+  image: seriallab/python3.5dev
+  stage: test-python
+  script:
+  - apt-get install -y git
+  - export PYTHONPATH=$PYTHONPATH:$CI_PROJECT_DIR
+  - pip install -r requirements_test.txt
+  - coverage run runtests.py
+  - coverage report -m
+  - coverage html
+  artifacts:
+    paths:
+      - htmlcov/
 
-python:
-  - "3.5"
+python3_6_unit_test:
+  image: seriallab/python3.6dev
+  stage: test-python
+  script:
+  - apt-get install -y git
+  - export PYTHONPATH=$PYTHONPATH:$CI_PROJECT_DIR
+  - pip install -r requirements_test.txt
+  - coverage run runtests.py
+  - coverage report -m
+  - coverage html
+  artifacts:
+    paths:
+      - htmlcov/
 
-env: 
-  - TOX_ENV=py35-django-18
-  - TOX_ENV=py34-django-18
-  - TOX_ENV=py33-django-18
-  - TOX_ENV=py27-django-18
-  - TOX_ENV=py35-django-19
-  - TOX_ENV=py34-django-19
-  - TOX_ENV=py27-django-19
-  - TOX_ENV=py35-django-110
-  - TOX_ENV=py34-django-110
-  - TOX_ENV=py27-django-110
+pages:
+    image: seriallab/python3.6dev
+    stage: build-docs
+    script:
+    - apt-get install -y git
+    - export PYTHONPATH=$PYTHONPATH:$CI_PROJECT_DIR
+    - pip install -r requirements_test.txt
+    - pip install sphinx sphinx_rtd_theme pygments ipython recommonmark
+    - make docs
+    - mv docs/_build/html/ public/
+    artifacts:
+        paths:
+        - public
+    only:
+      - tags
 
-matrix:
-  fast_finish: true
-
-# command to install dependencies, e.g. pip install -r requirements.txt --use-mirrors
-install: pip install -r requirements_test.txt
-
-# command to run tests using coverage, e.g. python setup.py test
-script: tox -e $TOX_ENV
-
-after_success:
-  - codecov -e TOX_ENV
+#deploy_pypi:
+#  image: seriallab/python3.6dev
+#  stage: pypi
+#  environment:
+#    name: deployment
+#    url: https://pypi.org/
+#  script:
+#    - echo "[distutils]" >> ~/.pypirc
+#    - echo "index-servers = " >> ~/.pypirc
+#    - echo "[pypi]" >> ~/.pypirc
+#    - echo "username=$PYPI_USER" >> ~/.pypirc
+#    - echo "password=$PYPI_PASSWORD" >> ~/.pypirc
+#    - python setup.py check sdist bdist_wheel upload
+#    - rm ~/.pypirc
+#  only:
+#    - tags
