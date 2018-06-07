@@ -6,5 +6,6 @@ from django.conf.urls import url, include
 from quartet_output.urls import urlpatterns as quartet_output_urls
 
 urlpatterns = [
-    url(r'^', include(quartet_output_urls, namespace='quartet_output')),
+    url(r'^', include((quartet_output_urls, 'quartet_output'),
+                      namespace='quartet_output')),
 ]

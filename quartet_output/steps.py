@@ -13,119 +13,58 @@
 #
 # Copyright 2018 SerialLab Corp.  All rights reserved.
 import io
-from EPCPyYes.core.v1_2 import events as yes_events
 from django.core.files.base import File
-
-from quartet_output.evaluation import EventEvaluation
 from quartet_output.models import EPCISOutputCriteria
+from quartet_output.parsing import OutputCriteriaParser
 from quartet_capture import models
-from quartet_epcis.parsing.steps import QuartetParser
 from quartet_epcis.parsing.steps import EPCISParsingStep
 
 
-class OutputCriterionParser(QuartetParser):
-    '''
-    Inherits from the `QuartetParser` in `quartet_epcis.parsing.parser`.
-    This parser can use an `EPCISOutputDetermination` model instance
-    to determine if any inbound messages can be used to create
-    and queue up outbound messages.
-    '''
-
-    def __init__(self, stream, epc_output_criteria: EPCISOutputCriteria,
-                 event_cache_size: int = 1024):
-        super().__init__(stream, event_cache_size)
-        self.epc_output_criteria = epc_output_criteria
-        self.event_evaluation = EventEvaluation()
-
-    def handle_aggregation_event(
-        self,
-        epcis_event: yes_events.AggregationEvent
-    ):
-        '''
-        Handles any aggregation events as they are found, inserts them into
-        the database and then inspects them for output determination.
-        :param epcis_event: The event to insert and inspect.
-        :return: None
-        '''
-        super().handle_aggregation_event(epcis_event)
-        self.evaluate(epcis_event)
-
-    def handle_transaction_event(
-        self,
-        epcis_event: yes_events.TransactionEvent
-    ):
-        '''
-        Handles any transaction events as they are found, inserts them into
-        the database and then inspects them for output determination.
-        :param epcis_event: The event to insert and inspect.
-        :return: None
-        '''
-        super().handle_transaction_event(epcis_event)
-        self.evaluate(epcis_event)
-
-    def handle_object_event(self, epcis_event: yes_events.ObjectEvent):
-        '''
-        Handles any object events as they are found, inserts them into
-        the database and then inspects them for output determination.
-        :param epcis_event: The event to insert and inspect.
-        :return: None
-        '''
-        super().handle_object_event(epcis_event)
-        self.evaluate(epcis_event)
-
-    def handle_transformation_event(
-        self,
-        epcis_event: yes_events.TransformationEvent
-    ):
-        '''
-        Handles any transformation events as they are found, inserts them into
-        the database and then inspects them for output determination.
-        :param epcis_event: The event to insert and inspect.
-        :return: None
-        :param epcis_event:
-        :return: None
-        '''
-        super().handle_transformation_event(epcis_event)
-        self.evaluate(epcis_event)
-
-    def evaluate(self, epcis_event):
-        if self.event_evaluation.evaluate_event(
-            epcis_event,
-            self.epc_output_criteria
-        ):
-            self.queue_task()
-
-    def queue_task(self):
-        print('queue task called.')
-
-
 class OutputParsingStep(EPCISParsingStep):
+    '''
+    A Step that can invokes the `quartet_output.EPCISOutputCriteria`
+    parser.  This parser looks for matches between the Step's configured
+    *EPCIS Output Criteria* model and any inbound EPCIS events to determine
+    if subsequent outbound rule processing is necessary.
+    '''
+
     def __init__(self, db_task: models.Task, **kwargs):
         super().__init__(db_task, **kwargs)
         self.declared_parameters['EPCIS Output Criteria'] = (
             'The name value of an EPCIS Output Criteria configuration.'
         )
+        self.epc_output_criteria = self.get_output_criteria()
+
+    def get_output_criteria(self):
+        output_criteria = self.get_parameter('EPCIS Output Criteria',
+                                             raise_exception=True)
         try:
-            output_criteria = self.get_parameter('EPCIS Output Criteria',
-                                                 raise_exception=True)
-            self.epc_output_criteria = EPCISOutputCriteria.objects.get(
+            return EPCISOutputCriteria.objects.get(
                 name=output_criteria
             )
-        except self.ParameterNotFoundError:
-            pass
         except EPCISOutputCriteria.DoesNotExist:
-            pass
+            exc = EPCISOutputCriteria.DoesNotExist(
+                'EPCISOutputCriteria with name %s could not be found in the '
+                'database.' % output_criteria
+            )
+            raise exc
 
     def execute(self, data, rule_context: dict):
-
+        '''
+        Calls the OutputCriteriaParser which looks for any matches
+        between the output criteria and any inbound events.
+        :param data: The data to parse.
+        :param rule_context: Any context supplied by the Rule.
+        :return: None
+        '''
         try:
             if isinstance(data, File):
-                parser = OutputCriterionParser(data,
-                                               self.epc_output_criteria)
+                parser = OutputCriteriaParser(data,
+                                              self.epc_output_criteria)
             else:
-                parser = OutputCriterionParser(io.BytesIO(data),
-                                               self.epc_output_criteria)
+                parser = OutputCriteriaParser(io.BytesIO(data),
+                                              self.epc_output_criteria)
         except TypeError:
-            parser = OutputCriterionParser(io.BytesIO(data.encode()),
-                                           self.epc_output_criteria)
+            parser = OutputCriteriaParser(io.BytesIO(data.encode()),
+                                          self.epc_output_criteria)
         parser.parse()

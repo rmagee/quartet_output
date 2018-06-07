@@ -23,6 +23,8 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sites",
     "quartet_output",
+    "quartet_capture",
+    "quartet_epcis"
 ]
 
 SITE_ID = 1

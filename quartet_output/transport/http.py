@@ -12,3 +12,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Copyright 2018 SerialLab Corp.  All rights reserved.
+
+from quartet_output.models import EndPoint
+from quartet_capture.rules import Step
+import requests
+
+class Post:
+    def __init__(self, location):
+        pass
+
