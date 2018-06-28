@@ -13,20 +13,70 @@
 #
 # Copyright 2018 SerialLab Corp.  All rights reserved.
 import io
+import itertools
+from enum import Enum
+from django.utils.translation import gettext as _
 from django.core.files.base import File
+from EPCPyYes.core.v1_2 import events
+from EPCPyYes.core.v1_2 import template_events
+from quartet_capture.rules import RuleContext
 from quartet_output.models import EPCISOutputCriteria
-from quartet_output.parsing import OutputCriteriaParser
-from quartet_capture import models
+from quartet_output.parsing import SimpleOutputParser, BusinessOutputParser
+from quartet_capture import models, rules
 from quartet_epcis.parsing.steps import EPCISParsingStep
+from quartet_epcis.db_api.queries import EPCISDBProxy, EntryList
+from quartet_epcis.models.choices import EventTypeChoicesEnum
+from quartet_epcis.models.entries import EntryEvent, Entry
+from quartet_epcis.models.events import Event
+
+
+class ContextKeys(Enum):
+    """
+    Containes Rule Context keys that the steps in this module utilize.
+
+    FILTERED_EVENTS_KEY
+    ------------------
+    This is used by the `OutputParsingStep` to place any events that match
+    the outbound determination parameters set by it's configured
+    *EPCIS Output Criteria* step parameter value.  Subsequent Steps in this
+    module will look for events under this key to verify if they should
+    process the events.  The `OutputParsingStep` will place any matching events
+    in this key as `EPCPyYes.core.v1_2.template_event` instances.
+
+    AGGREGATION_EVENTS_KEY
+    ---------------------
+    This is utilized by the `UnpackHierarchy` step.  Any
+    EPCPyYes.core.v1_2.template_event.AggregationEvents that were created
+    as a result of the events in the `FILTERED_EVENT_KEY` will be placed under
+    this key.  Subsequent Steps will use this key to find the aggregation
+    events for further processing, sending, storing, rendering, etc.
+
+    AGGREGATION_EVENTS_KEY
+    ---------------------
+    This is utilized by the `EPCPyYesParsingStep` step.  Any
+    EPCPyYes.core.v1_2.template_event.ObjectEvents that were created
+    as a result of the events in the `FILTERED_EVENT_KEY` will be placed under
+    this key.  Subsequent Steps will use this key to find the aggregation
+    events for further processing, sending, storing, rendering, etc.
+    """
+    FILTERED_EVENT_KEY = 'FILTERED_EVENTS'
+    AGGREGATION_EVENTS_KEY = 'AGGREGATION_EVENTS'
+    OBJECT_EVENTS_KEY = 'OBJECT_EVENTS'
+    OUTBOUND_EPCIS_MESSAGE_KEY = 'OUTBOUND_EPCIS_MESSAGE'
 
 
 class OutputParsingStep(EPCISParsingStep):
-    '''
+    """
     A Step that can invokes the `quartet_output.EPCISOutputCriteria`
     parser.  This parser looks for matches between the Step's configured
     *EPCIS Output Criteria* model and any inbound EPCIS events to determine
     if subsequent outbound rule processing is necessary.
-    '''
+
+    The `OutputParsingStep` will place any events that match up against
+    the configured *EPCIS Output Criteria* into the Rule Context's context
+    dictionary under the key 'FILTERED_EVENTS'.  This will be a list of
+    EPCPyYes template events.
+    """
 
     def __init__(self, db_task: models.Task, **kwargs):
         super().__init__(db_task, **kwargs)
@@ -36,35 +86,306 @@ class OutputParsingStep(EPCISParsingStep):
         self.epc_output_criteria = self.get_output_criteria()
 
     def get_output_criteria(self):
-        output_criteria = self.get_parameter('EPCIS Output Criteria',
+        self.info('Retrieving the Step\'s EPCIS Output Criteria '
+                  'parameter value...')
+        output_criteria = self.get_parameter(_('EPCIS Output Criteria'),
                                              raise_exception=True)
+        self.info(_('EPCIS Output Critieria is set to %s' % output_criteria))
         try:
             return EPCISOutputCriteria.objects.get(
                 name=output_criteria
             )
         except EPCISOutputCriteria.DoesNotExist:
             exc = EPCISOutputCriteria.DoesNotExist(
-                'EPCISOutputCriteria with name %s could not be found in the '
-                'database.' % output_criteria
+                _('EPCISOutputCriteria with name %s could not be found in the '
+                  'database.') % output_criteria
             )
             raise exc
 
-    def execute(self, data, rule_context: dict):
-        '''
-        Calls the OutputCriteriaParser which looks for any matches
+    def execute(self, data, rule_context: rules.RuleContext):
+        """
+        Calls the SimpleOutputParser which looks for any matches
         between the output criteria and any inbound events.
         :param data: The data to parse.
         :param rule_context: Any context supplied by the Rule.
         :return: None
-        '''
+        """
+        # get the parser to use from the parameter value.
+        # the loose_enforcement parameter is from the base class
+        # `EPCISParsingStep` and determines which parser to use.
+        parser_type = SimpleOutputParser if self.loose_enforcement \
+            else BusinessOutputParser
+        self.info('Parser Type %s', str(parser_type))
         try:
             if isinstance(data, File):
-                parser = OutputCriteriaParser(data,
-                                              self.epc_output_criteria)
+                parser = parser_type(data,
+                                     self.epc_output_criteria)
             else:
-                parser = OutputCriteriaParser(io.BytesIO(data),
-                                              self.epc_output_criteria)
+                parser = parser_type(io.BytesIO(data),
+                                     self.epc_output_criteria)
         except TypeError:
-            parser = OutputCriteriaParser(io.BytesIO(data.encode()),
-                                          self.epc_output_criteria)
+            parser = SimpleOutputParser(io.BytesIO(data.encode()),
+                                        self.epc_output_criteria)
+        self.info(_('Parsing the document...'))
         parser.parse()
+        self.info(_('Parsing complete.  %s matching events were found.') %
+                  str(len(parser.filtered_events)))
+        if len(parser.filtered_events) > 0:
+            rule_context.context[
+                ContextKeys.FILTERED_EVENT_KEY.value] = parser.filtered_events
+
+
+class FilteredEventStepMixin:
+    """
+    A mixin with some helper functions to deal with common issues.  To use
+    this in your own class do the following in your custom step's `execute`
+    function:
+
+    .. code-block:: text
+
+        self.rule_context = rule_context
+
+    This will allow the mixin access to the `RuleContext` instance passed to
+    every step by the rule engine.
+    """
+
+    def get_filtered_events(self, default=[]):
+        """
+        Will check to see if any prior rules have filtered any events
+        for outbound processing.
+        :param default: The value to return if no filtered events are found.
+        Default is an empty list.
+        :return: Will return the events or an empty list.
+        """
+        return self.rule_context.context.get(
+            ContextKeys.FILTERED_EVENT_KEY.value, default
+        )
+
+    def get_epc_list(self, epcis_event: events.EPCISEvent):
+        """
+        Based on the type of event will return the proper list since
+        an object and aggregation event have different names for their
+        lists.
+        :param epcis_event:
+        :return: A list of EPCS.
+        """
+        if isinstance(epcis_event, events.ObjectEvent):
+            ret = epcis_event.child_epcs
+        else:
+            ret = epcis_event.epc_list
+        return ret
+
+    def get_parent_epc(self, epcis_event: events.EPCISEvent,
+                       default: str = None):
+        '''
+        If the inbound event is a transaction or transformation event,
+        will return the parent.  Otherwise, default.
+        :param epcis_event:
+        :return:
+        '''
+        if isinstance(epcis_event, events.AggregationEvent) or isinstance(
+            epcis_event, events.TransformationEvent
+        ):
+            return epcis_event.parent_id
+        else:
+            ret = default
+        return ret
+
+
+class UnpackHierarchyStep(rules.Step, FilteredEventStepMixin):
+    """
+    Will take the top level items from any events and unpack them into
+    aggregation events.
+    """
+
+    def __init__(self, db_task: models.Task, **kwargs):
+        super().__init__(db_task, **kwargs)
+        self.db_proxy = EPCISDBProxy()
+
+    def execute(self, data, rule_context: rules.RuleContext):
+        """
+        Ignores the data and looks in the RuleContext for any events in the
+        rule context that have been selected for outbound message processing
+        under the key defined in the `FILTERED_EVENT_KEY`.
+
+        If there are events in the context under that key, this Step will
+        then
+        :param data: The original inbound message to the Rule.
+        :param rule_context: The RuleContext instance passed in by the
+        rule engine.
+        """
+        self.out_events = []
+        self.rule_context = rule_context
+        self.info('Unpack hierarchy step executing...')
+        # look in the context for any events that matched output determination
+        # criteria set forth in an `EPCISOutputCriteria` model instance.
+        epcis_events = self.get_filtered_events()
+        # use the db_proxy to get all the events for this.
+        self.info('Found %s events that were filtered.', len(epcis_events))
+        epcs = []
+        for epcis_event in epcis_events:
+            if isinstance(epcis_event, events.AggregationEvent) or \
+                isinstance(epcis_event, events.TransformationEvent):
+                self.warning(
+                    _('Skipping a transformation or aggregation event. '
+                      'these events can not trigger an unpack action '
+                      'in the UnpackHierarchyStep.  Only Transaction '
+                      'and Object events may do so.'))
+            else:
+                epcs = epcs + self.get_epc_list(epcis_event)
+                if epcis_event.parent_id:
+                    epcs.append(epcis_event.parent_id)
+
+        # use the db proxy to get the EPCPyYes aggregation event history back
+        agg_events = self.db_proxy.get_aggregation_events_by_epcs(epcs)
+        # add the found events to the context for any downstream steps
+        rule_context.context[
+            ContextKeys.AGGREGATION_EVENTS_KEY.value] = agg_events
+
+    def on_failure(self):
+        pass
+
+    @property
+    def declared_parameters(self):
+        return super().declared_parameters()
+
+
+class AddCommissioningDataStep(rules.Step, FilteredEventStepMixin):
+    """
+    This step will take any
+    """
+
+    def __init__(self, db_task: models.Task, **kwargs):
+        super().__init__(db_task, **kwargs)
+        self.db_proxy = EPCISDBProxy()
+
+    def execute(self, data, rule_context: RuleContext):
+        # check for filtered events in the rule context
+        epcis_events = rule_context.context.get(
+            ContextKeys.FILTERED_EVENT_KEY.value, []
+        )
+        # set this to use the mixin
+        self.rule_context = rule_context
+        self.info('%s filtered events have been found. Processing',
+                  len(epcis_events))
+        for epcis_event in epcis_events:
+            self.process_event(epcis_event, rule_context)
+        self.info('Processing complete.')
+
+    def process_event(self, epcis_event: events.EPCISBusinessEvent,
+                      rule_context: RuleContext):
+        epcs = self.get_epc_list(epcis_event)
+        parent = self.get_parent_epc(epcis_event)
+        if parent: epcs.append(parent)
+        # find if there are any top-level entries- this is a much more
+        # efficient database query
+        tops = self.db_proxy.get_top_entries(epcs)
+        # if there were any tops, remove them from the epcs list so we don't
+        # double our efforts
+        [epcs.remove(top.identifier) for top in tops]
+        # now that we have all the tops, get all of the entries that have
+        # the defined tops
+        all_children = self.db_proxy.get_entries_by_tops(
+            tops,
+            select_for_update=False
+        )
+        # now get any entries from any of the other epcs that are parent-level
+        # if any
+        parents = self.db_proxy.get_parent_entries(
+            epcs,
+            select_for_update=False
+        )
+        all_children = all_children | self.handle_parent_entries(parents)
+        # now find all the commissioning events for these
+        all_events = self.db_proxy.get_events_by_entry_list(
+            all_children | parents,
+            event_type=EventTypeChoicesEnum.OBJECT.value
+        )
+        self.info('Adding %s Object events to the rule context.',
+                  len(all_events))
+        rule_context.context[ContextKeys.OBJECT_EVENTS_KEY.value] = all_events
+
+    def handle_parent_entries(self, parent_entries: EntryList):
+        # the epcs in the event automatically are assumed to be part of an
+        # object event of commissioning so we have them already, now we
+        # need to see if there are any "parents" in the child list
+        # of the event and add those children as well.
+        all_children = self.db_proxy.get_entries_by_parents(parent_entries)
+        for child in all_children:
+            if child.is_parent:
+                all_children = all_children | self.handle_parent_entries(
+                    [child])
+        return all_children
+
+    def on_failure(self):
+        pass
+
+    @property
+    def declared_parameters(self):
+        return super().declared_parameters()
+
+
+class EPCPyYesOutputStep(rules.Step, FilteredEventStepMixin):
+    """
+    Will look for any EPCPyYes events in the context and render them to
+    XML or JSON depending on the step parameter configuration.
+    """
+
+    def __init__(self, db_task: models.Task, **kwargs):
+        super().__init__(db_task, **kwargs)
+
+    def execute(self, data, rule_context: RuleContext):
+        """
+        Pulls the object, agg, transaction and other events out of the context
+        for processing.  See the step parameters
+        :param data: The original message (not used by this step).
+        :param rule_context: The RuleContext containing any filtered events
+        and also any EPCPyYes events that were created by prior steps.
+        """
+        self.rule_context = rule_context
+        append_filtered_events = self.get_boolean_parameter(
+            'Append Filtered Events', True)
+        prepend_filtered_events = self.get_boolean_parameter(
+            'Prepend Filtered Events', False
+        )
+        oevents = rule_context.context.get(ContextKeys.OBJECT_EVENTS_KEY.value,
+                                           [])
+        aggevents = rule_context.context.get(
+            ContextKeys.AGGREGATION_EVENTS_KEY.value, [])
+        if append_filtered_events:
+            if prepend_filtered_events:
+                all_events = self.get_filtered_events() + oevents + aggevents
+            else:
+                all_events = oevents + aggevents + self.get_filtered_events()
+        else:
+            all_events = oevents + aggevents
+        if len(all_events) > 0:
+            epcis_document = template_events.EPCISEventListDocument(all_events)
+            if self.get_boolean_parameter('JSON', False):
+                data = epcis_document.render_json()
+            else:
+                data = epcis_document.render()
+            rule_context.context[
+                ContextKeys.OUTBOUND_EPCIS_MESSAGE_KEY.value
+            ] = data
+
+    def declared_parameters(self):
+        return {
+            "Append Filtered Events": _('Whether or not to append any events '
+                                        'found in the rule context under the '
+                                        'FILTERED_EVENT_KEY to the new '
+                                        'message.'),
+            "Prepend Filtered Events": _('Whether or not to add the filtered '
+                                         'events to the beginning of the '
+                                         'message or the end. If this is True,'
+                                         ' then all filtered events will be'
+                                         'added to the beginning of the EPCIS '
+                                         'EventList- otherwise they will be '
+                                         'added to the end.'),
+            "JSON": _('If set to True then the output message for the EPCPyYEs'
+                      'events will be JSON.')
+        }
+
+    def on_failure(self):
+        super().on_failure()
+

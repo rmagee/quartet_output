@@ -33,3 +33,33 @@ if django.VERSION >= (1, 10):
     MIDDLEWARE = ()
 else:
     MIDDLEWARE_CLASSES = ()
+
+##### un-comment to enable local logging to standard output ######
+# import logging
+# import logging.config
+# logging.basicConfig(
+#     level=logging.DEBUG,
+#     handlers=[logging.StreamHandler()],
+# )
+# LOGGING = {
+#     'version': 1,
+#     'disable_existing_loggers': False,
+#     'handlers': {
+#         'file': {
+#             'level': 'DEBUG',
+#             'class': 'logging.StreamHandler',
+#         },
+#     },
+#     'loggers': {
+#         'django': {
+#             'handlers': ['file'],
+#             'level': 'INFO',
+#             'propagate': False,
+#         },
+#     },
+# }
+
+try:
+    from tests.local_settings import *
+except ImportError:
+    pass

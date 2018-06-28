@@ -16,33 +16,43 @@
 from EPCPyYes.core.v1_2 import events as yes_events
 from quartet_output.evaluation import EventEvaluation
 from quartet_output.models import EPCISOutputCriteria
-from quartet_epcis.parsing.steps import QuartetParser
+from quartet_epcis.parsing.parser import QuartetParser
+from quartet_epcis.parsing.business_parser import BusinessEPCISParser
 
 
-class OutputCriteriaParser(QuartetParser):
-    '''
-    Inherits from the `QuartetParser` in `quartet_epcis.parsing.parser`.
-    This parser can use an `EPCISOutputDetermination` model instance
-    to determine if any inbound messages can be used to create
-    and queue up outbound messages.
-    '''
+class SimpleOutputParser(QuartetParser):
+    """
+    Inherits from the `BusinessEPCISParser` which, unlike the `QuartetParser`,
+    enforces strict business rules within the confines of parsing EPCIS data.
+    For example, items that have been decommissioned and are included
+    within a message with throw an exception, aggregation is tracked and
+    hierarchies are maintained, etc.  For more on the difference
+    between these two fundamental parsers see the `quartet_epcis`
+    documentation.
+    """
 
-    def __init__(self, stream, epc_output_criteria: EPCISOutputCriteria,
-                 event_cache_size: int = 1024):
-        super().__init__(stream, event_cache_size)
-        self.epc_output_criteria = epc_output_criteria
+    def __init__(
+        self,
+        stream,
+        epcis_output_criteria: EPCISOutputCriteria,
+        event_cache_size: int = 1024,
+        recursive_decommission: bool = True
+    ):
+        super().__init__(stream, event_cache_size, recursive_decommission)
+        self.epcis_output_criteria = epcis_output_criteria
         self.event_evaluation = EventEvaluation()
+        self.filtered_events = []
 
     def handle_aggregation_event(
         self,
         epcis_event: yes_events.AggregationEvent
     ):
-        '''
+        """
         Handles any aggregation events as they are found, inserts them into
         the database and then inspects them for output determination.
         :param epcis_event: The event to insert and inspect.
         :return: None
-        '''
+        """
         super().handle_aggregation_event(epcis_event)
         self.evaluate(epcis_event)
 
@@ -50,22 +60,22 @@ class OutputCriteriaParser(QuartetParser):
         self,
         epcis_event: yes_events.TransactionEvent
     ):
-        '''
+        """
         Handles any transaction events as they are found, inserts them into
         the database and then inspects them for output determination.
         :param epcis_event: The event to insert and inspect.
         :return: None
-        '''
+        """
         super().handle_transaction_event(epcis_event)
         self.evaluate(epcis_event)
 
     def handle_object_event(self, epcis_event: yes_events.ObjectEvent):
-        '''
+        """
         Handles any object events as they are found, inserts them into
         the database and then inspects them for output determination.
         :param epcis_event: The event to insert and inspect.
         :return: None
-        '''
+        """
         super().handle_object_event(epcis_event)
         self.evaluate(epcis_event)
 
@@ -73,23 +83,103 @@ class OutputCriteriaParser(QuartetParser):
         self,
         epcis_event: yes_events.TransformationEvent
     ):
-        '''
+        """
         Handles any transformation events as they are found, inserts them into
         the database and then inspects them for output determination.
+        If an event is determined to be meeting an outbound criteria
+        configuration then it is added to this class's `filtered_events`
+        list.
         :param epcis_event: The event to insert and inspect.
-        :return: None
-        :param epcis_event:
-        :return: None
-        '''
+        """
         super().handle_transformation_event(epcis_event)
         self.evaluate(epcis_event)
 
     def evaluate(self, epcis_event):
         if self.event_evaluation.evaluate_event(
             epcis_event,
-            self.epc_output_criteria
+            self.epcis_output_criteria
         ):
-            self.queue_task()
+            self.filtered_events.append(epcis_event)
 
-    def queue_task(self):
-        print('queue task called.')
+
+
+class BusinessOutputParser(BusinessEPCISParser):
+    """
+    Inherits from the `BusinessEPCISParser` which, unlike the `QuartetParser`,
+    enforces strict business rules within the confines of parsing EPCIS data.
+    For example, items that have been decommissioned and are included
+    within a message with throw an exception, aggregation is tracked and
+    hierarchies are maintained, etc.  For more on the difference
+    between these two fundamental parsers see the `quartet_epcis`
+    documentation.
+    """
+
+    def __init__(
+        self,
+        stream,
+        epcis_output_criteria: EPCISOutputCriteria,
+        event_cache_size: int = 1024,
+        recursive_decommission: bool = True
+    ):
+        super().__init__(stream, event_cache_size, recursive_decommission)
+        self.epcis_output_criteria = epcis_output_criteria
+        self.event_evaluation = EventEvaluation()
+        self.filtered_events = []
+
+    def handle_aggregation_event(
+        self,
+        epcis_event: yes_events.AggregationEvent
+    ):
+        """
+        Handles any aggregation events as they are found, inserts them into
+        the database and then inspects them for output determination.
+        :param epcis_event: The event to insert and inspect.
+        :return: None
+        """
+        super().handle_aggregation_event(epcis_event)
+        self.evaluate(epcis_event)
+
+    def handle_transaction_event(
+        self,
+        epcis_event: yes_events.TransactionEvent
+    ):
+        """
+        Handles any transaction events as they are found, inserts them into
+        the database and then inspects them for output determination.
+        :param epcis_event: The event to insert and inspect.
+        :return: None
+        """
+        super().handle_transaction_event(epcis_event)
+        self.evaluate(epcis_event)
+
+    def handle_object_event(self, epcis_event: yes_events.ObjectEvent):
+        """
+        Handles any object events as they are found, inserts them into
+        the database and then inspects them for output determination.
+        :param epcis_event: The event to insert and inspect.
+        :return: None
+        """
+        super().handle_object_event(epcis_event)
+        self.evaluate(epcis_event)
+
+    def handle_transformation_event(
+        self,
+        epcis_event: yes_events.TransformationEvent
+    ):
+        """
+        Handles any transformation events as they are found, inserts them into
+        the database and then inspects them for output determination.
+        If an event is determined to be meeting an outbound criteria
+        configuration then it is added to this class's `filtered_events`
+        list.
+        :param epcis_event: The event to insert and inspect.
+        """
+        super().handle_transformation_event(epcis_event)
+        self.evaluate(epcis_event)
+
+    def evaluate(self, epcis_event):
+        if self.event_evaluation.evaluate_event(
+            epcis_event,
+            self.epcis_output_criteria
+        ):
+            self.filtered_events.append(epcis_event)
