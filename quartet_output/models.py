@@ -53,7 +53,7 @@ class EPCISOutputCriteria(models.Model):
         choices=EVENT_CHOICES
     )
     action = models.CharField(
-        max_length=5,
+        max_length=20,
         verbose_name=_("Action"),
         help_text=_("The EPCIS event's ACTION type."),
         null=True,

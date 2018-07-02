@@ -20,14 +20,14 @@ from django.core.files.base import File
 from EPCPyYes.core.v1_2 import events
 from EPCPyYes.core.v1_2 import template_events
 from quartet_capture.rules import RuleContext
+from quartet_output import errors
 from quartet_output.models import EPCISOutputCriteria
 from quartet_output.parsing import SimpleOutputParser, BusinessOutputParser
 from quartet_capture import models, rules
+from quartet_capture.tasks import create_and_queue_task
 from quartet_epcis.parsing.steps import EPCISParsingStep
 from quartet_epcis.db_api.queries import EPCISDBProxy, EntryList
 from quartet_epcis.models.choices import EventTypeChoicesEnum
-from quartet_epcis.models.entries import EntryEvent, Entry
-from quartet_epcis.models.events import Event
 
 
 class ContextKeys(Enum):
@@ -252,14 +252,22 @@ class UnpackHierarchyStep(rules.Step, FilteredEventStepMixin):
 
 class AddCommissioningDataStep(rules.Step, FilteredEventStepMixin):
     """
-    This step will take any
+    This step will look at the rule context FILTERED_EVENT_KEY for any filterd
+    EPCIS events.  If any are found, this step will use those events to create
+    the series of ObjectEvents that created the items and any item children
+    in the filtered events.
     """
-
     def __init__(self, db_task: models.Task, **kwargs):
         super().__init__(db_task, **kwargs)
         self.db_proxy = EPCISDBProxy()
 
     def execute(self, data, rule_context: RuleContext):
+        '''
+        Looks for any filtered events and then creates any object events
+        associated with the epcs in the filtered event.
+        :param data: The rule data (not used by this step)
+        :param rule_context: The rule context.
+        '''
         # check for filtered events in the rule context
         epcis_events = rule_context.context.get(
             ContextKeys.FILTERED_EVENT_KEY.value, []
@@ -274,6 +282,16 @@ class AddCommissioningDataStep(rules.Step, FilteredEventStepMixin):
 
     def process_event(self, epcis_event: events.EPCISBusinessEvent,
                       rule_context: RuleContext):
+        '''
+        Handles any filtered EPCPyYes events found in the context, unpacks
+        their children and adds them to EPCPyYes object event instances.
+        Any EPCPyYes events created by this function are put on the rule
+        context under the OBJECT_EVENTS_KEY key.
+        :param epcis_event: An EPCPyYes event found on the context that
+        was filtered.
+        :param rule_context: The rule context to add any created events to.
+        :return:
+        '''
         epcs = self.get_epc_list(epcis_event)
         parent = self.get_parent_epc(epcis_event)
         if parent: epcs.append(parent)
@@ -306,6 +324,12 @@ class AddCommissioningDataStep(rules.Step, FilteredEventStepMixin):
         rule_context.context[ContextKeys.OBJECT_EVENTS_KEY.value] = all_events
 
     def handle_parent_entries(self, parent_entries: EntryList):
+        '''
+        Recursively walks a hierarchy and pulls out epcs for processing.
+        :param parent_entries: Entries that represent EPCs that are parent
+        EPCs.
+        :return: All of the children found for the given entries.
+        '''
         # the epcs in the event automatically are assumed to be part of an
         # object event of commissioning so we have them already, now we
         # need to see if there are any "parents" in the child list
@@ -330,10 +354,6 @@ class EPCPyYesOutputStep(rules.Step, FilteredEventStepMixin):
     Will look for any EPCPyYes events in the context and render them to
     XML or JSON depending on the step parameter configuration.
     """
-
-    def __init__(self, db_task: models.Task, **kwargs):
-        super().__init__(db_task, **kwargs)
-
     def execute(self, data, rule_context: RuleContext):
         """
         Pulls the object, agg, transaction and other events out of the context
@@ -383,9 +403,60 @@ class EPCPyYesOutputStep(rules.Step, FilteredEventStepMixin):
                                          'EventList- otherwise they will be '
                                          'added to the end.'),
             "JSON": _('If set to True then the output message for the EPCPyYEs'
-                      'events will be JSON.')
+                      'events will be JSON.'),
         }
 
     def on_failure(self):
         super().on_failure()
 
+
+class CreateOutputTaskStep(rules.Step):
+    '''
+    Will look for any data in the rule context under the
+    OUTBOUND_EPCIS_MESSAGE_KEY context key.  If data is found there,
+    this step will create a new task for the rule engine to process with
+    the data found in the context as the data to be processed by the rule.
+    To configure what Rule this step will create the new task under,
+    set the **Output Rule** step parameter value to the name of a rule to
+    execute.
+    '''
+    def execute(self, data, rule_context: RuleContext):
+        '''
+        Checks the context for any data under the OUTBOUND_EPCIS_MESSAGE_KEY
+        and then creates a task in the rule engine using the *Outbound Rule*
+        step parameter.
+        :param data: The data to process.
+        :param rule_context: The rule context.
+        '''
+        super().execute(data, rule_context)
+        # check the context to see if we have any epcis data to send
+        self.info(_('Checking the rule context for any data under the '
+                    'OUTBOUND_EPCIS_MESSAGE_KEY context key.'))
+        data = rule_context.context.get(
+            ContextKeys.OUTBOUND_EPCIS_MESSAGE_KEY.value
+        )
+        if data:
+            self.info(_('Data was found.  Checking for the Output Rule '
+                        'parameter in the step parameters.'))
+            # get the output rule name
+            output_rule_name = self.get_parameter(
+                'Output Rule',
+                raise_exception=True
+            )
+            # send the data and the rule name and task type over
+            # to the rule engine to create a task to process the message
+            # using the rule specified in this step's 'Output Rule' parameter
+            task_name = create_and_queue_task(
+                data, output_rule_name, 'Output'
+            )
+            self.info('Created a new output task %s with rule %s',
+                      task_name, output_rule_name)
+
+    def declared_parameters(self):
+        return {
+            "Output Rule": _('The name of the rule that will process the '
+                             'EPCIS output data created by this step.')
+        }
+
+    def on_failure(self):
+        pass

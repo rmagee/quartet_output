@@ -24,57 +24,50 @@ from quartet_output import models
 
 class TestQuartetOutput(TestCase):
 
-    # def setUp(self):
-    #     pass
-    #
-    # def test_evaluation(self):
-    #     oc = self._create_output_criterion()
-    #     self._parse_data(oc)
-    #
-    # def test_bad_source(self):
-    #     oc = self._create_output_criterion()
-    #     oc.source_id = None
-    #     with self.assertRaises(ValidationError):
-    #         oc.clean()
-    #
-    # def test_bad_destination(self):
-    #     oc = self._create_output_criterion()
-    #     oc.destination_id = None
-    #     with self.assertRaises(ValidationError):
-    #         oc.clean()
+    def test_bad_source(self):
+        oc = self._create_good_ouput_criterion()
+        oc.source_id = None
+        with self.assertRaises(ValidationError):
+            oc.clean()
 
-    # def test_rule_with_pallet_agg(self):
-    #     '''
-    #     Should process the EPCIS but not filter out a full pallet hierarchy.
-    #     :return:
-    #     '''
-    #     self._create_output_criterion()
-    #     db_rule = self._create_rule()
-    #     self._create_step(db_rule)
-    #     self._create_output_steps(db_rule)
-    #     db_task = self._create_task(db_rule)
-    #     curpath = os.path.dirname(__file__)
-    #     # prepopulate the db
-    #     self._parse_test_data('data/commission_three_events.xml')
-    #     self._parse_test_data('data/nested_pack.xml')
-    #     data_path = os.path.join(curpath, 'data/ship_pallet.xml')
-    #     with open(data_path, 'r') as data_file:
-    #         context = execute_rule(data_file.read().encode(), db_task)
-    #         self.assertEqual(
-    #             len(context.context[ContextKeys.AGGREGATION_EVENTS_KEY.value]),
-    #             3,
-    #             "There should be three filtered events."
-    #         )
-    #         for event in context.context[
-    #             ContextKeys.AGGREGATION_EVENTS_KEY.value]:
-    #             if event.parent_id in ['urn:epc:id:sgtin:305555.3555555.1',
-    #                                    'urn:epc:id:sgtin:305555.3555555.2']:
-    #                 self.assertEqual(len(event.child_epcs), 5)
-    #             else:
-    #                 self.assertEqual(len(event.child_epcs),2)
+    def test_bad_destination(self):
+        oc = self._create_good_ouput_criterion()
+        oc.destination_id = None
+        with self.assertRaises(ValidationError):
+            oc.clean()
+
+    def test_rule_with_pallet_agg(self):
+        '''
+        Should process the EPCIS but not filter out a full pallet hierarchy.
+        :return:
+        '''
+        self._create_good_ouput_criterion()
+        db_rule = self._create_rule()
+        self._create_step(db_rule)
+        self._create_output_steps(db_rule)
+        db_task = self._create_task(db_rule)
+        curpath = os.path.dirname(__file__)
+        # prepopulate the db
+        self._parse_test_data('data/commission_three_events.xml')
+        self._parse_test_data('data/nested_pack.xml')
+        data_path = os.path.join(curpath, 'data/ship_pallet.xml')
+        with open(data_path, 'r') as data_file:
+            context = execute_rule(data_file.read().encode(), db_task)
+            self.assertEqual(
+                len(context.context[ContextKeys.AGGREGATION_EVENTS_KEY.value]),
+                3,
+                "There should be three filtered events."
+            )
+            for event in context.context[
+                ContextKeys.AGGREGATION_EVENTS_KEY.value]:
+                if event.parent_id in ['urn:epc:id:sgtin:305555.3555555.1',
+                                       'urn:epc:id:sgtin:305555.3555555.2']:
+                    self.assertEqual(len(event.child_epcs), 5)
+                else:
+                    self.assertEqual(len(event.child_epcs),2)
 
     def test_rule_with_agg_comm(self):
-        self._create_output_criterion()
+        self._create_good_ouput_criterion()
         db_rule = self._create_rule()
         self._create_step(db_rule)
         self._create_output_steps(db_rule)
@@ -102,7 +95,7 @@ class TestQuartetOutput(TestCase):
                     self.assertEqual(len(event.child_epcs), 2)
 
     def test_rule_with_agg_mulit_comm(self):
-        self._create_output_criterion()
+        self._create_good_ouput_criterion()
         db_rule = self._create_rule()
         self._create_step(db_rule)
         self._create_output_steps(db_rule)
@@ -143,43 +136,45 @@ class TestQuartetOutput(TestCase):
                               "One of the object events in the context is "
                               "malformed.")
 
-    # def test_rule_no_agg(self):
-    #     '''
-    #     Should process the EPCIS but not filter out any aggregation events.
-    #     :return:
-    #     '''
-    #     self._create_output_criterion()
-    #     db_rule = self._create_rule()
-    #     self._create_step(db_rule)
-    #     self._create_output_steps(db_rule)
-    #     db_task = self._create_task(db_rule)
-    #     curpath = os.path.dirname(__file__)
-    #     data_path = os.path.join(curpath, 'data/epcis.xml')
-    #     with open(data_path, 'r') as data_file:
-    #         context = execute_rule(data_file.read().encode(), db_task)
-    #         self.assertEqual(
-    #             len(context.context[ContextKeys.AGGREGATION_EVENTS_KEY.value]),
-    #             0,
-    #             "There should be no filtered events."
-    #         )
+    def test_rule_no_agg(self):
+        '''
+        Should process the EPCIS but not filter out any aggregation events.
+        :return:
+        '''
+        # create output criteria that does not result in the
+        # matching of any events.
+        self._create_bad_criterion()
+        db_rule = self._create_rule()
+        self._create_step(db_rule)
+        self._create_output_steps(db_rule)
+        db_task = self._create_task(db_rule)
+        curpath = os.path.dirname(__file__)
+        data_path = os.path.join(curpath, 'data/epcis.xml')
+        with open(data_path, 'r') as data_file:
+            context = execute_rule(data_file.read().encode(), db_task)
+            self.assertEqual(
+                len(context.context[ContextKeys.AGGREGATION_EVENTS_KEY.value]),
+                0,
+                "There should be no filtered events."
+            )
 
-    #
-    # def test_full_bad_rule(self):
-    #     oec = self._create_output_criterion()
-    #     oec.name = "Bad Name"
-    #     oec.save()
-    #     db_rule = self._create_rule()
-    #     self._create_step(db_rule)
-    #     db_task = self._create_task(db_rule)
-    #     curpath = os.path.dirname(__file__)
-    #     data_path = os.path.join(curpath, 'data/epcis.xml')
-    #     with open(data_path, 'r') as data_file:
-    #         try:
-    #             execute_rule(data_file.read().encode(), db_task)
-    #         except EPCISOutputCriteria.DoesNotExist:
-    #             pass
 
-    def _create_output_criterion(self):
+    def test_full_bad_rule(self):
+        oec = self._create_good_ouput_criterion()
+        oec.name = "Bad Name"
+        oec.save()
+        db_rule = self._create_rule()
+        self._create_step(db_rule)
+        db_task = self._create_task(db_rule)
+        curpath = os.path.dirname(__file__)
+        data_path = os.path.join(curpath, 'data/epcis.xml')
+        with open(data_path, 'r') as data_file:
+            try:
+                execute_rule(data_file.read().encode(), db_task)
+            except EPCISOutputCriteria.DoesNotExist:
+                pass
+
+    def _create_good_ouput_criterion(self):
         eoc = EPCISOutputCriteria()
         eoc.name = "Test Criteria"
         eoc.action = "ADD"
@@ -195,11 +190,19 @@ class TestQuartetOutput(TestCase):
         eoc.save()
         return eoc
 
+    def _create_bad_criterion(self):
+        eoc = EPCISOutputCriteria()
+        eoc.name = "Test Criteria"
+        eoc.action = "DELETE"
+        eoc.event_type = EventType.Transaction.value
+        eoc.save()
+        return eoc
+
     def _parse_data(self, output_criteria):
         curpath = os.path.dirname(__file__)
         parser = SimpleOutputParser(
             os.path.join(curpath, 'data/epcis.xml'),
-            epc_output_criteria=output_criteria
+            output_criteria
         )
         parser.parse()
         parser.clear_cache()
