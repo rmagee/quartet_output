@@ -33,3 +33,15 @@ class RuleNotFound(BaseOutputError):
     message.
     '''
     pass
+
+class ExpectedContextVariableError(BaseOutputError):
+    '''
+    Thrown if the Rule Context does not contain an expected context variable.
+    '''
+    pass
+
+class ProtocolNotSupportedError(BaseOutputError):
+    '''
+    Thrown if the Rule Context does not contain an expected context variable.
+    '''
+    pass

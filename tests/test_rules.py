@@ -64,7 +64,7 @@ class TestQuartetOutput(TestCase):
                                        'urn:epc:id:sgtin:305555.3555555.2']:
                     self.assertEqual(len(event.child_epcs), 5)
                 else:
-                    self.assertEqual(len(event.child_epcs),2)
+                    self.assertEqual(len(event.child_epcs), 2)
 
     def test_rule_with_agg_comm(self):
         self._create_good_ouput_criterion()
@@ -73,6 +73,41 @@ class TestQuartetOutput(TestCase):
         self._create_output_steps(db_rule)
         self._create_comm_step(db_rule)
         self._create_epcpyyes_step(db_rule)
+        db_task = self._create_task(db_rule)
+        curpath = os.path.dirname(__file__)
+        # prepopulate the db
+        self._parse_test_data('data/commission_one_event.xml')
+        self._parse_test_data('data/nested_pack.xml')
+        data_path = os.path.join(curpath, 'data/ship_pallet.xml')
+        with open(data_path, 'r') as data_file:
+            context = execute_rule(data_file.read().encode(), db_task)
+            self.assertEqual(
+                len(context.context[ContextKeys.AGGREGATION_EVENTS_KEY.value]),
+                3,
+                "There should be three filtered events."
+            )
+            for event in context.context[
+                ContextKeys.AGGREGATION_EVENTS_KEY.value]:
+                if event.parent_id in ['urn:epc:id:sgtin:305555.3555555.1',
+                                       'urn:epc:id:sgtin:305555.3555555.2']:
+                    self.assertEqual(len(event.child_epcs), 5)
+                else:
+                    self.assertEqual(len(event.child_epcs), 2)
+            self.assertIsNotNone(
+                context.context.get(
+                    ContextKeys.EPCIS_OUTPUT_CRITERIA_KEY.value)
+            )
+
+    def test_rule_with_agg_comm_output(self):
+        self._create_good_ouput_criterion()
+        db_rule = self._create_rule()
+        self._create_step(db_rule)
+        self._create_output_steps(db_rule)
+        self._create_comm_step(db_rule)
+        self._create_epcpyyes_step(db_rule)
+        self._create_task_step(db_rule)
+        db_rule2= self._create_transport_rule()
+        self._create_transport_step(db_rule2)
         db_task = self._create_task(db_rule)
         curpath = os.path.dirname(__file__)
         # prepopulate the db
@@ -132,7 +167,7 @@ class TestQuartetOutput(TestCase):
             )
             for oevent in context.context[
                 ContextKeys.OBJECT_EVENTS_KEY.value]:
-                self.assertIn(len(oevent.epc_list), [10,2,1],
+                self.assertIn(len(oevent.epc_list), [10, 2, 1],
                               "One of the object events in the context is "
                               "malformed.")
 
@@ -157,7 +192,6 @@ class TestQuartetOutput(TestCase):
                 0,
                 "There should be no filtered events."
             )
-
 
     def test_full_bad_rule(self):
         oec = self._create_good_ouput_criterion()
@@ -214,6 +248,27 @@ class TestQuartetOutput(TestCase):
         rule.save()
         return rule
 
+    def _create_transport_rule(self):
+        rule = Rule()
+        rule.name = 'Transport Rule'
+        rule.description = 'Attempts to send data using transport step(s).'
+        rule.save()
+        return rule
+
+    def _create_transport_step(self, rule):
+        step = Step()
+        step.rule = rule
+        step.order = 1
+        step.name = 'Transport'
+        step.step_class = 'quartet_output.steps.TransportStep'
+        step.description = 'Sends test data.'
+        step.save()
+        step_parameter = StepParameter()
+        step_parameter.step = step
+        step_parameter.name = 'run-immediately'
+        step_parameter.value = 'True'
+        step_parameter.save()
+
     def _create_step(self, rule):
         step = Step()
         step.rule = rule
@@ -262,6 +317,31 @@ class TestQuartetOutput(TestCase):
         task.name = 'unit test task'
         task.save()
         return task
+
+    def _create_task_step(self, rule):
+        step = Step()
+        step.rule = rule
+        step.order = 5
+        step.name = 'Create Output Task'
+        step.step_class = 'quartet_output.steps.CreateOutputTaskStep'
+        step.description = 'Looks for any EPCIS data on the context and ' \
+                           'then, if found, creates a new output task using ' \
+                           'the configured Output Rule step parameter.'
+        step.save()
+        step_parameter = StepParameter()
+        step_parameter.step = step
+        step_parameter.name = 'Output Rule'
+        step_parameter.value = 'Transport Rule'
+        step_parameter.description = 'The name of the rule to create a new ' \
+                                     'task with.'
+        step_parameter.save()
+        step_parameter = StepParameter()
+        step_parameter.step = step
+        step_parameter.name = 'run-immediately'
+        step_parameter.value = 'True'
+        step_parameter.description = 'The name of the rule to create a new ' \
+                                     'task with.'
+        step_parameter.save()
 
     def _parse_test_data(self, test_file='data/epcis.xml',
                          parser_type=BusinessEPCISParser,

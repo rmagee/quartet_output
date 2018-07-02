@@ -13,7 +13,8 @@
 #
 # Copyright 2018 SerialLab Corp.  All rights reserved.
 import io
-import itertools
+import requests
+from urllib.parse import urlparse
 from enum import Enum
 from django.utils.translation import gettext as _
 from django.core.files.base import File
@@ -21,9 +22,10 @@ from EPCPyYes.core.v1_2 import events
 from EPCPyYes.core.v1_2 import template_events
 from quartet_capture.rules import RuleContext
 from quartet_output import errors
-from quartet_output.models import EPCISOutputCriteria
+from quartet_output.transport.http import HttpTransportMixin
+from quartet_output.models import EPCISOutputCriteria, EndPoint
 from quartet_output.parsing import SimpleOutputParser, BusinessOutputParser
-from quartet_capture import models, rules
+from quartet_capture import models, rules, errors as capture_errors
 from quartet_capture.tasks import create_and_queue_task
 from quartet_epcis.parsing.steps import EPCISParsingStep
 from quartet_epcis.db_api.queries import EPCISDBProxy, EntryList
@@ -43,11 +45,20 @@ class ContextKeys(Enum):
     process the events.  The `OutputParsingStep` will place any matching events
     in this key as `EPCPyYes.core.v1_2.template_event` instances.
 
+    EPCIS_OUTPUT_CRITERIA_KEY
+    -------------------------
+    When the OutputParsingStep loads, it will put an instance of the
+    configured `EPCISOutputCriteria` model that was loaded as a result of
+    inspecting the `EPCIS Output Criteria` step parameter for that step.
+    This model instance is utilized (typically) by downstream transport
+    steps that require a reference to the endpoint, protocol and authentication
+    information that is stored in the output criteria.
+
     AGGREGATION_EVENTS_KEY
     ---------------------
     This is utilized by the `UnpackHierarchy` step.  Any
     EPCPyYes.core.v1_2.template_event.AggregationEvents that were created
-    as a result of the events in the `FILTERED_EVENT_KEY` will be placed under
+    as a result of the events in the `FILTERED_EVENTS_KEY` will be placed under
     this key.  Subsequent Steps will use this key to find the aggregation
     events for further processing, sending, storing, rendering, etc.
 
@@ -55,11 +66,12 @@ class ContextKeys(Enum):
     ---------------------
     This is utilized by the `EPCPyYesParsingStep` step.  Any
     EPCPyYes.core.v1_2.template_event.ObjectEvents that were created
-    as a result of the events in the `FILTERED_EVENT_KEY` will be placed under
+    as a result of the events in the `FILTERED_EVENTS_KEY` will be placed under
     this key.  Subsequent Steps will use this key to find the aggregation
     events for further processing, sending, storing, rendering, etc.
     """
-    FILTERED_EVENT_KEY = 'FILTERED_EVENTS'
+    FILTERED_EVENTS_KEY = 'FILTERED_EVENTS'
+    EPCIS_OUTPUT_CRITERIA_KEY = 'EPCIS_OUTPUT_CRITERIA'
     AGGREGATION_EVENTS_KEY = 'AGGREGATION_EVENTS'
     OBJECT_EVENTS_KEY = 'OBJECT_EVENTS'
     OUTBOUND_EPCIS_MESSAGE_KEY = 'OUTBOUND_EPCIS_MESSAGE'
@@ -76,6 +88,12 @@ class OutputParsingStep(EPCISParsingStep):
     the configured *EPCIS Output Criteria* into the Rule Context's context
     dictionary under the key 'FILTERED_EVENTS'.  This will be a list of
     EPCPyYes template events.
+
+    In addition, since the output criteria contains transport information and
+    authentication information, it will place this on the context
+    under the EPCIS_OUTPUT_CRITERIA_KEY for any
+    downstream steps that need to access the criteria values to send any
+    data that was created as a result of the filter step.
     """
 
     def __init__(self, db_task: models.Task, **kwargs):
@@ -110,6 +128,11 @@ class OutputParsingStep(EPCISParsingStep):
         :param rule_context: Any context supplied by the Rule.
         :return: None
         """
+        # before we start, make sure we make the output criteria available
+        # to any downstream steps that need it in order to send data.
+        rule_context.context[
+            ContextKeys.EPCIS_OUTPUT_CRITERIA_KEY.value
+        ] = self.epc_output_criteria
         # get the parser to use from the parameter value.
         # the loose_enforcement parameter is from the base class
         # `EPCISParsingStep` and determines which parser to use.
@@ -132,7 +155,7 @@ class OutputParsingStep(EPCISParsingStep):
                   str(len(parser.filtered_events)))
         if len(parser.filtered_events) > 0:
             rule_context.context[
-                ContextKeys.FILTERED_EVENT_KEY.value] = parser.filtered_events
+                ContextKeys.FILTERED_EVENTS_KEY.value] = parser.filtered_events
 
 
 class FilteredEventStepMixin:
@@ -158,7 +181,7 @@ class FilteredEventStepMixin:
         :return: Will return the events or an empty list.
         """
         return self.rule_context.context.get(
-            ContextKeys.FILTERED_EVENT_KEY.value, default
+            ContextKeys.FILTERED_EVENTS_KEY.value, default
         )
 
     def get_epc_list(self, epcis_event: events.EPCISEvent):
@@ -206,7 +229,7 @@ class UnpackHierarchyStep(rules.Step, FilteredEventStepMixin):
         """
         Ignores the data and looks in the RuleContext for any events in the
         rule context that have been selected for outbound message processing
-        under the key defined in the `FILTERED_EVENT_KEY`.
+        under the key defined in the `FILTERED_EVENTS_KEY`.
 
         If there are events in the context under that key, this Step will
         then
@@ -252,11 +275,12 @@ class UnpackHierarchyStep(rules.Step, FilteredEventStepMixin):
 
 class AddCommissioningDataStep(rules.Step, FilteredEventStepMixin):
     """
-    This step will look at the rule context FILTERED_EVENT_KEY for any filterd
+    This step will look at the rule context FILTERED_EVENTS_KEY for any filterd
     EPCIS events.  If any are found, this step will use those events to create
     the series of ObjectEvents that created the items and any item children
     in the filtered events.
     """
+
     def __init__(self, db_task: models.Task, **kwargs):
         super().__init__(db_task, **kwargs)
         self.db_proxy = EPCISDBProxy()
@@ -270,7 +294,7 @@ class AddCommissioningDataStep(rules.Step, FilteredEventStepMixin):
         '''
         # check for filtered events in the rule context
         epcis_events = rule_context.context.get(
-            ContextKeys.FILTERED_EVENT_KEY.value, []
+            ContextKeys.FILTERED_EVENTS_KEY.value, []
         )
         # set this to use the mixin
         self.rule_context = rule_context
@@ -354,6 +378,7 @@ class EPCPyYesOutputStep(rules.Step, FilteredEventStepMixin):
     Will look for any EPCPyYes events in the context and render them to
     XML or JSON depending on the step parameter configuration.
     """
+
     def execute(self, data, rule_context: RuleContext):
         """
         Pulls the object, agg, transaction and other events out of the context
@@ -393,7 +418,7 @@ class EPCPyYesOutputStep(rules.Step, FilteredEventStepMixin):
         return {
             "Append Filtered Events": _('Whether or not to append any events '
                                         'found in the rule context under the '
-                                        'FILTERED_EVENT_KEY to the new '
+                                        'FILTERED_EVENTS_KEY to the new '
                                         'message.'),
             "Prepend Filtered Events": _('Whether or not to add the filtered '
                                          'events to the beginning of the '
@@ -420,6 +445,7 @@ class CreateOutputTaskStep(rules.Step):
     set the **Output Rule** step parameter value to the name of a rule to
     execute.
     '''
+
     def execute(self, data, rule_context: RuleContext):
         '''
         Checks the context for any data under the OUTBOUND_EPCIS_MESSAGE_KEY
@@ -435,6 +461,7 @@ class CreateOutputTaskStep(rules.Step):
         data = rule_context.context.get(
             ContextKeys.OUTBOUND_EPCIS_MESSAGE_KEY.value
         )
+
         if data:
             self.info(_('Data was found.  Checking for the Output Rule '
                         'parameter in the step parameters.'))
@@ -443,14 +470,34 @@ class CreateOutputTaskStep(rules.Step):
                 'Output Rule',
                 raise_exception=True
             )
+            self.info(_('Looking for the EPCISOutputCriteria placed on the '
+                        'context by the OutputParsingStep.'))
+            # get the epcis output critieria to put in the task parameters
+            # output steps need access to the auth and endpoint info therein
+            epcis_output_criteria = rule_context.get_required_context_variable(
+                ContextKeys.EPCIS_OUTPUT_CRITERIA_KEY.value
+            )
+            # create a task parameter with the name of the
+            # epcis_output_criteria.  the function below will associate with
+            # the task after it is created.
+            task_param = models.TaskParameter(
+                name='EPCIS Output Criteria',
+                value=epcis_output_criteria,
+                description=_('The name of the EPCIS Output Criteria to '
+                              'use during task processing.')
+            )
             # send the data and the rule name and task type over
             # to the rule engine to create a task to process the message
             # using the rule specified in this step's 'Output Rule' parameter
-            task_name = create_and_queue_task(
-                data, output_rule_name, 'Output'
+            # create it in a waiting state until after parameters are supplied
+            run_immediately = self.get_boolean_parameter('run-immediately',
+                                                         default=False)
+            task = create_and_queue_task(
+                data, output_rule_name, 'Output', initial_status='WAITING',
+                task_parameters=[task_param], run_immediately=run_immediately
             )
             self.info('Created a new output task %s with rule %s',
-                      task_name, output_rule_name)
+                      task.name, output_rule_name)
 
     def declared_parameters(self):
         return {
@@ -460,3 +507,99 @@ class CreateOutputTaskStep(rules.Step):
 
     def on_failure(self):
         pass
+
+
+class TransportStep(rules.Step, HttpTransportMixin):
+    '''
+    Uses the transport information within the `EPCISOutputCriteria` placed
+    on the context under the EPCIS_OUTPUT_CRITERIA_KEY to send any data that
+    was placed on the context under the OUTBOUND_EPCIS_MESSAGE_KEY.
+    '''
+
+    def execute(self, data, rule_context: RuleContext):
+        # get the task parameters that we rely on
+        try:
+            self.info(_('Looking for the task parameter with the EPCIS '
+                        'Output Name.'))
+            param = models.TaskParameter.objects.get(
+                task__name=rule_context.task_name,
+                name='EPCIS Output Criteria'
+            )
+            # now see if we can get the output critieria based on the param
+            # value
+            self.info(_('Found the output param, now looking up the '
+                        'EPCIS Output Criteria instance with name %s.'),
+                      param.value
+                      )
+            output_criteria = EPCISOutputCriteria.objects.get(
+                name=param.value
+            )
+            self.info(_('Found output criteria with name %s.'),
+                      output_criteria)
+            # check the url/urn to see if we support the protocol
+            protocol = self._supports_protocol(output_criteria.end_point)
+            self.info('Protocol supported.  Sending message.')
+            self.send_message(protocol, rule_context, output_criteria)
+
+        except models.TaskParameter.DoesNotExist:
+            raise capture_errors.ExpectedTaskParameterError(
+                _('The task parameter with name EPCIS Output Criteria '
+                  'could not be found.  This task parameter is required by '
+                  'the TransportStep to function correctly.')
+            )
+
+    def _send_message(self, protocol: str, data: bytes,
+                      rule_context: RuleContext,
+                      output_criteria: EPCISOutputCriteria):
+        '''
+        Sends a message using the protocol specified.
+        :param protocol: The scheme of the urn in the output_criteria endpoint.
+        :param data: The data to send.
+        :param rule_context: The RuleContext.
+        :param output_criteria:
+        :return: None.
+        '''
+        content_type = self.get_parameter('content-type', 'application/xml')
+        file_extension = self.get_parameter('file-extension', 'xml')
+        put_data = self.get_boolean_parameter('put-data')
+        if protocol.lower() in ['http', 'https']:
+            if not put_data:
+                func = self.post_data
+            else:
+                func = self.put_data
+            func(data, rule_context, output_criteria,
+                 content_type=content_type,
+                 file_extension=file_extension)
+
+    def _supports_protocol(self, endpoint: EndPoint):
+        '''
+        Inspects the output settings and determines if this step can support
+        the protocol or not. Override this to support another or more
+        protocols.
+        :param EndPoint: the endpoint to inspect
+        :return: Returns the supported scheme if the protocol is supported or
+        None.
+        '''
+        parse_result = urlparse(
+            endpoint.urn
+        )
+        if parse_result.scheme.lower() in ['http', 'https']:
+            return parse_result.scheme
+        else:
+            raise errors.ProtocolNotSupportedError(_(
+                'The protocol specified in urn %s is not supported by this '
+                'step or module.'
+            ), endpoint.urn)
+
+    def on_failure(self):
+        super().on_failure()
+
+    @property
+    def declared_parameters(self):
+        return {
+            'content-type': 'The content-type to add to the header during any '
+                            'http posts, puts, etc. Default is application/'
+                            'xml',
+            'file-extension': 'The file extension to specify when posting and '
+                              'putting data via http. Default is xml'
+        }

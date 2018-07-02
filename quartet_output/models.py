@@ -34,11 +34,11 @@ EVENT_CHOICES = (
 
 
 class EPCISOutputCriteria(models.Model):
-    '''
+    """
     Based on the contents of an inbound event or groups of events,
     this model can be used to examine the contents of the events and
     determine what rules to execute for messaging.
-    '''
+    """
     name = models.CharField(
         max_length=150,
         verbose_name=_("Name"),
@@ -128,10 +128,10 @@ class EPCISOutputCriteria(models.Model):
     )
 
     def clean(self):
-        '''
+        """
         Require that if both source and destination fields are configured if
         one or the other type/id is.
-        '''
+        """
         if self.source_type or self.source_id:
             if not(self.source_type and self.source_id):
                 raise ValidationError(_("If either the Source Type or ID "
@@ -150,9 +150,9 @@ class EPCISOutputCriteria(models.Model):
 
 
 class EndPoint(models.Model):
-    '''
+    """
     Defines a generic endpoint.
-    '''
+    """
     name = models.CharField(
         max_length=150,
         verbose_name=_("Name"),
@@ -169,12 +169,12 @@ class EndPoint(models.Model):
 
 
 class AuthenticationInfo(models.Model):
-    '''
+    """
     Holds data relative to basic auth needed by EndPoints for HTTP and other
     username/password protocols.  Encryption of the password is handled
     through the API layer.  Do not bypass the API when creating users or
     you run the risk of exposing authentication data.
-    '''
+    """
     username = models.CharField(
         max_length=150,
         verbose_name=_("Username"),
@@ -186,6 +186,13 @@ class AuthenticationInfo(models.Model):
         verbose_name=_("password"),
         help_text=_("The password for the user."),
         null=False
+    )
+    type = models.CharField(
+        max_length=25,
+        verbose_name=_("Type"),
+        help_text=_("The type of authentication to use.  For example, Basic,"
+                    " Digest, SSH, etc.  This is optional depending on whether"
+                    " or not any steps require this information.")
     )
     description = models.CharField(
         max_length=200,
@@ -202,4 +209,23 @@ class AuthenticationInfo(models.Model):
         verbose_name=_("Public Key"),
         help_text=_("Any public key info if applicable."),
         null=True
+    )
+
+class TaskCriteriaMapping(models.Model):
+    """
+    Maps any tasks created to output criteria for deferred processing by
+    output steps.
+    """
+    task_name = models.CharField(
+        max_length=50,
+        verbose_name=_("Task Name"),
+        help_text=_("The name of the task created."),
+        null=False
+    )
+    ouput_criteria = models.ForeignKey(
+        EPCISOutputCriteria,
+        null=False,
+        verbose_name=_("EPCIS Output Criterial"),
+        help_text=_("The EPCIS Ouput Criteria to map to the task."),
+        on_delete=models.CASCADE
     )
