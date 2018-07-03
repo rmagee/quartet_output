@@ -4,8 +4,8 @@ stages:
     #- pypi
 
 services:
-  -name: mendhak/http-https-echo:latest
-  -alias: testhost
+  - name: mendhak/http-https-echo:latest
+    alias: testhost
 
 python3_5_unit_test:
   image: seriallab/python3.5dev
