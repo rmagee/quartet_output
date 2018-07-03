@@ -7,3 +7,9 @@ History
 ++++++++++++++++++
 
 * First release on PyPI.
+
+1.0.0 July 3 2018
++++++++++++++++++
+
+* First production ready release.
+

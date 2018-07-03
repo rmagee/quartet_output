@@ -4,7 +4,7 @@ Usage
 
 To use quartet_output in a project, add it to your `INSTALLED_APPS`:
 
-.. code-block:: python
+.. code-block:: text
 
     INSTALLED_APPS = (
         ...
@@ -14,7 +14,7 @@ To use quartet_output in a project, add it to your `INSTALLED_APPS`:
 
 Add quartet_output's URL patterns:
 
-.. code-block:: python
+.. code-block:: text
 
     from quartet_output import urls as quartet_output_urls
 
