@@ -261,7 +261,7 @@ class TestQuartetOutput(TestCase):
 
     def _create_endpoint(self):
         ep = models.EndPoint()
-        ep.urn = 'http://localhost'
+        ep.urn = 'http://testhost'
         ep.name = 'Test EndPoint'
         ep.save()
         return ep
