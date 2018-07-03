@@ -9,6 +9,7 @@ lxml
 celery>=4.1.1
 django-extensions>=2.0.7
 djangorestframework>=3.8.2
+quartet_epcis>=1.1.6
 quartet_capture>=1.0.20
 epcpyyes>=1.2.8
 eparsecis>=1.1.0
