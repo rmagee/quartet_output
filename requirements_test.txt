@@ -9,4 +9,6 @@ lxml
 celery>=4.1.1
 django-extensions>=2.0.7
 djangorestframework>=3.8.2
+-e git+ssh://git@gitlab.com:serial-lab/quartet_capture.git#egg=quartet_capture
+-e git+ssh://git@gitlab.com:serial-lab/epcpyyes.git#egg=epcpyyes
 # Additional test requirements go here
