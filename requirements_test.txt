@@ -11,6 +11,6 @@ django-extensions>=2.0.7
 djangorestframework>=3.8.2
 quartet_capture>=1.0.20
 epcpyyes>=1.2.8
-eparsecis>1.1.6
+eparsecis>=1.1.6
 
 
