@@ -120,7 +120,7 @@ class EPCISOutputCriteria(models.Model):
     )
     end_point = models.ForeignKey(
         'quartet_output.EndPoint',
-        null=True,
+        null=False,
         on_delete=models.PROTECT,
         verbose_name=_("End Point"),
         help_text=_("A prtocol-specific endpoint defining where any output"

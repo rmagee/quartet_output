@@ -539,7 +539,7 @@ class TransportStep(rules.Step, HttpTransportMixin):
             # check the url/urn to see if we support the protocol
             protocol = self._supports_protocol(output_criteria.end_point)
             self.info('Protocol supported.  Sending message.')
-            self.send_message(protocol, rule_context, output_criteria)
+            self._send_message(protocol, rule_context, output_criteria)
 
         except models.TaskParameter.DoesNotExist:
             raise capture_errors.ExpectedTaskParameterError(
@@ -548,15 +548,18 @@ class TransportStep(rules.Step, HttpTransportMixin):
                   'the TransportStep to function correctly.')
             )
 
-    def _send_message(self, protocol: str, data: bytes,
-                      rule_context: RuleContext,
-                      output_criteria: EPCISOutputCriteria):
+    def _send_message(
+        self,
+        protocol: str,
+        rule_context: RuleContext,
+        output_criteria: EPCISOutputCriteria
+    ):
         '''
         Sends a message using the protocol specified.
         :param protocol: The scheme of the urn in the output_criteria endpoint.
-        :param data: The data to send.
-        :param rule_context: The RuleContext.
-        :param output_criteria:
+        :param rule_context: The RuleContext contains the data in the
+        OUTBOUND_EPCIS_MESSAGE_KEY value from the `ContextKey` class.
+        :param output_criteria: The originating output criteria.
         :return: None.
         '''
         content_type = self.get_parameter('content-type', 'application/xml')
@@ -567,9 +570,13 @@ class TransportStep(rules.Step, HttpTransportMixin):
                 func = self.post_data
             else:
                 func = self.put_data
-            func(data, rule_context, output_criteria,
-                 content_type=content_type,
-                 file_extension=file_extension)
+            func(
+                ContextKeys.OUTBOUND_EPCIS_MESSAGE_KEY.value,
+                rule_context,
+                output_criteria,
+                content_type,
+                file_extension
+            )
 
     def _supports_protocol(self, endpoint: EndPoint):
         '''

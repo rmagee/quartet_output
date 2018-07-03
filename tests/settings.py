@@ -34,6 +34,8 @@ if django.VERSION >= (1, 10):
 else:
     MIDDLEWARE_CLASSES = ()
 
+MEDIA_ROOT='/tmp'
+
 ##### un-comment to enable local logging to standard output ######
 # import logging
 # import logging.config

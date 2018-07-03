@@ -129,6 +129,37 @@ class TestQuartetOutput(TestCase):
                 else:
                     self.assertEqual(len(event.child_epcs), 2)
 
+    def test_rule_with_agg_comm_output_put(self):
+        self._create_good_ouput_criterion()
+        db_rule = self._create_rule()
+        self._create_step(db_rule)
+        self._create_output_steps(db_rule)
+        self._create_comm_step(db_rule)
+        self._create_epcpyyes_step(db_rule)
+        self._create_task_step(db_rule)
+        db_rule2= self._create_transport_rule()
+        self._create_transport_step(db_rule2, put_data=True)
+        db_task = self._create_task(db_rule)
+        curpath = os.path.dirname(__file__)
+        # prepopulate the db
+        self._parse_test_data('data/commission_one_event.xml')
+        self._parse_test_data('data/nested_pack.xml')
+        data_path = os.path.join(curpath, 'data/ship_pallet.xml')
+        with open(data_path, 'r') as data_file:
+            context = execute_rule(data_file.read().encode(), db_task)
+            self.assertEqual(
+                len(context.context[ContextKeys.AGGREGATION_EVENTS_KEY.value]),
+                3,
+                "There should be three filtered events."
+            )
+            for event in context.context[
+                ContextKeys.AGGREGATION_EVENTS_KEY.value]:
+                if event.parent_id in ['urn:epc:id:sgtin:305555.3555555.1',
+                                       'urn:epc:id:sgtin:305555.3555555.2']:
+                    self.assertEqual(len(event.child_epcs), 5)
+                else:
+                    self.assertEqual(len(event.child_epcs), 2)
+
     def test_rule_with_agg_mulit_comm(self):
         self._create_good_ouput_criterion()
         db_rule = self._create_rule()
@@ -209,6 +240,8 @@ class TestQuartetOutput(TestCase):
                 pass
 
     def _create_good_ouput_criterion(self):
+        endpoint = self._create_endpoint()
+        auth = self._create_auth()
         eoc = EPCISOutputCriteria()
         eoc.name = "Test Criteria"
         eoc.action = "ADD"
@@ -221,14 +254,35 @@ class TestQuartetOutput(TestCase):
         eoc.source_id = 'urn:epc:id:sgln:305555.123456.12'
         eoc.destination_type = 'urn:epcglobal:cbv:sdt:location'
         eoc.destination_id = 'urn:epc:id:sgln:309999.111111.233'
+        eoc.authentication_info = auth
+        eoc.end_point = endpoint
         eoc.save()
         return eoc
+
+    def _create_endpoint(self):
+        ep = models.EndPoint()
+        ep.urn = 'http://localhost'
+        ep.name = 'Test EndPoint'
+        ep.save()
+        return ep
+
+    def _create_auth(self):
+        auth = models.AuthenticationInfo()
+        auth.description = 'Unit test auth.'
+        auth.username = 'UnitTestUser'
+        auth.password = 'UnitTestPassword'
+        auth.save()
+        return auth
 
     def _create_bad_criterion(self):
         eoc = EPCISOutputCriteria()
         eoc.name = "Test Criteria"
         eoc.action = "DELETE"
         eoc.event_type = EventType.Transaction.value
+        endpoint = self._create_endpoint()
+        auth = self._create_auth()
+        eoc.end_point = endpoint
+        eoc.authentication_info = auth
         eoc.save()
         return eoc
 
@@ -255,7 +309,7 @@ class TestQuartetOutput(TestCase):
         rule.save()
         return rule
 
-    def _create_transport_step(self, rule):
+    def _create_transport_step(self, rule, put_data='False'):
         step = Step()
         step.rule = rule
         step.order = 1
@@ -267,6 +321,11 @@ class TestQuartetOutput(TestCase):
         step_parameter.step = step
         step_parameter.name = 'run-immediately'
         step_parameter.value = 'True'
+        step_parameter.save()
+        step_parameter = StepParameter()
+        step_parameter.step = step
+        step_parameter.name = 'put-data'
+        step_parameter.value = put_data
         step_parameter.save()
 
     def _create_step(self, rule):
