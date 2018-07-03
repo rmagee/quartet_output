@@ -9,7 +9,7 @@ Tests for `quartet_output` models module.
 """
 import os
 from django.core.exceptions import ValidationError
-from EPCPyYes.core.v1_2.events import EventType, Source, Destination
+from EPCPyYes.core.v1_2.events import EventType
 from EPCPyYes.core.v1_2.CBV.dispositions import Disposition
 from EPCPyYes.core.v1_2.CBV.business_steps import BusinessSteps
 from quartet_epcis.parsing.business_parser import BusinessEPCISParser

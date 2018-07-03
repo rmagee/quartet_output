@@ -41,7 +41,7 @@ class EPCISOutputCriteriaSerializer(ModelSerializer):
     """
     Default serializer for the EPCISOutputCriteria model.
     """
-    endpoint = EndPointSerializer(many=False)
+    end_point = EndPointSerializer(many=False)
     authentication_info = AuthenticationInfoSerializer(many=False)
 
     class Meta:

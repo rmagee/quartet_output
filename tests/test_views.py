@@ -17,6 +17,9 @@ import django
 
 os.environ['DJANGO_SETTINGS_MODULE'] = 'tests.settings'
 django.setup()
+from EPCPyYes.core.v1_2.events import EventType
+from EPCPyYes.core.v1_2.CBV.dispositions import Disposition
+from EPCPyYes.core.v1_2.CBV.business_steps import BusinessSteps
 from rest_framework.test import APITestCase
 from django.urls import reverse
 from quartet_output import models
@@ -30,9 +33,45 @@ class ViewTest(APITestCase):
     def test_endpoint(self):
         self._create_endpoint()
         url = reverse('end-points-list')
-        # #data = self._get_test_data()
         response = self.client.get(url)
         self.assertIs(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0].get('name'), 'Test EndPoint')
+
+    def test_authentication_info(self):
+        self._create_auth()
+        url = reverse('authentication-info-list')
+        response = self.client.get(url)
+        self.assertIs(response.status_code, 200)
+
+    def test_epcis_output_criteria(self):
+        self._create_good_ouput_criterion()
+        url = reverse('epcis-output-criteria-list')
+        response = self.client.get(url)
+        self.assertIs(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0].get('action'), 'ADD')
+
+
+    def _create_good_ouput_criterion(self):
+        endpoint = self._create_endpoint()
+        auth = self._create_auth()
+        eoc = models.EPCISOutputCriteria()
+        eoc.name = "Test Criteria"
+        eoc.action = "ADD"
+        eoc.event_type = EventType.Transaction.value
+        eoc.disposition = Disposition.in_transit.value
+        eoc.biz_step = BusinessSteps.shipping.value
+        eoc.biz_location = 'urn:epc:id:sgln:305555.123456.0'
+        eoc.read_point = 'urn:epc:id:sgln:305555.123456.12'
+        eoc.source_type = 'urn:epcglobal:cbv:sdt:location'
+        eoc.source_id = 'urn:epc:id:sgln:305555.123456.12'
+        eoc.destination_type = 'urn:epcglobal:cbv:sdt:location'
+        eoc.destination_id = 'urn:epc:id:sgln:309999.111111.233'
+        eoc.authentication_info = auth
+        eoc.end_point = endpoint
+        eoc.save()
+        return eoc
 
     def _create_endpoint(self):
         ep = models.EndPoint()
@@ -40,6 +79,14 @@ class ViewTest(APITestCase):
         ep.name = 'Test EndPoint'
         ep.save()
         return ep
+
+    def _create_auth(self):
+        auth = models.AuthenticationInfo()
+        auth.description = 'Unit test auth.'
+        auth.username = 'UnitTestUser'
+        auth.password = 'UnitTestPassword'
+        auth.save()
+        return auth
 
     def _get_test_data(self):
         '''
