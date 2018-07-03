@@ -1,7 +1,7 @@
 stages:
     - test-python
     - build-docs
-    #- pypi
+    - pypi
 
 services:
   - name: mendhak/http-https-echo:latest
