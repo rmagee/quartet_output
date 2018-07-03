@@ -12,3 +12,26 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Copyright 2018 SerialLab Corp.  All rights reserved.
+
+from rest_framework.routers import DefaultRouter
+from quartet_output import viewsets
+
+router = DefaultRouter()
+
+router.register(
+    r'end-points',
+    viewsets.EndPointViewSet,
+    base_name='end-points'
+)
+router.register(
+    r'authentication-info',
+    viewsets.AuthenticationInfoViewSet,
+    base_name='authentication-info'
+)
+router.register(
+    r'epcis-output-criteria',
+    viewsets.EPCISOutputCriteriaViewSet,
+    base_name='epcis-output-criteria'
+)
+
+urlpatterns = router.urls

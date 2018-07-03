@@ -12,3 +12,38 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Copyright 2018 SerialLab Corp.  All rights reserved.
+from quartet_output import models
+from rest_framework.serializers import ModelSerializer
+
+
+class EndPointSerializer(ModelSerializer):
+    """
+    Default serializer for the EndPoint model.
+    """
+
+    class Meta:
+        model = models.EndPoint
+        fields = '__all__'
+
+
+class AuthenticationInfoSerializer(ModelSerializer):
+    """
+    Default serializer for the AuthenticationInfo model.
+    """
+
+    class Meta:
+        model = models.AuthenticationInfo
+        fields = '__all__'
+        extra_kwargs = {'password': {'write_only': True}}
+
+
+class EPCISOutputCriteriaSerializer(ModelSerializer):
+    """
+    Default serializer for the EPCISOutputCriteria model.
+    """
+    endpoint = EndPointSerializer(many=False)
+    authentication_info = AuthenticationInfoSerializer(many=False)
+
+    class Meta:
+        model = models.EPCISOutputCriteria
+        fields = '__all__'

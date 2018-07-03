@@ -101,7 +101,8 @@ class EPCISOutputCriteria(models.Model):
     destination_type = models.CharField(
         max_length=150,
         verbose_name=_("Destination Type"),
-        help_text=_("The type of the Destination- a CBV 1.2 URI or custom URI."),
+        help_text=_(
+            "The type of the Destination- a CBV 1.2 URI or custom URI."),
         null=True
     )
     destination_id = models.CharField(
@@ -133,11 +134,11 @@ class EPCISOutputCriteria(models.Model):
         one or the other type/id is.
         """
         if self.source_type or self.source_id:
-            if not(self.source_type and self.source_id):
+            if not (self.source_type and self.source_id):
                 raise ValidationError(_("If either the Source Type or ID "
                                         "are specified then both must be."))
         if self.destination_type or self.destination_id:
-            if not(self.destination_type and self.destination_id):
+            if not (self.destination_type and self.destination_id):
                 raise ValidationError(_("If either the Destination Type or ID "
                                         "are specified then both must be."))
 
@@ -209,23 +210,4 @@ class AuthenticationInfo(models.Model):
         verbose_name=_("Public Key"),
         help_text=_("Any public key info if applicable."),
         null=True
-    )
-
-class TaskCriteriaMapping(models.Model):
-    """
-    Maps any tasks created to output criteria for deferred processing by
-    output steps.
-    """
-    task_name = models.CharField(
-        max_length=50,
-        verbose_name=_("Task Name"),
-        help_text=_("The name of the task created."),
-        null=False
-    )
-    ouput_criteria = models.ForeignKey(
-        EPCISOutputCriteria,
-        null=False,
-        verbose_name=_("EPCIS Output Criterial"),
-        help_text=_("The EPCIS Ouput Criteria to map to the task."),
-        on_delete=models.CASCADE
     )

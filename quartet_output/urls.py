@@ -13,13 +13,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Copyright 2018 SerialLab Corp.  All rights reserved.
-from django.conf.urls import url
-from django.views.generic import TemplateView
-
-from . import views
+from quartet_output.routers import urlpatterns as route_patterns
 
 app_name = 'quartet_output'
-
-urlpatterns = [
-    url(r'', TemplateView.as_view(template_name="base.html")),
-    ]
+urlpatterns = route_patterns

@@ -12,3 +12,31 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Copyright 2018 SerialLab Corp.  All rights reserved.
+from quartet_output import models
+from quartet_output import serializers
+from rest_framework.viewsets import ModelViewSet
+
+
+class EndPointViewSet(ModelViewSet):
+    '''
+    CRUD ready model view for the EndPoint model.
+    '''
+    queryset = models.EndPoint.objects.all()
+    serializer_class = serializers.EndPointSerializer
+
+
+class EPCISOutputCriteriaViewSet(ModelViewSet):
+    '''
+    CRUD ready model view for the EPCISOutputCriteria model.
+    '''
+    queryset = models.EPCISOutputCriteria.objects.all()
+    serializer_class = serializers.EPCISOutputCriteriaSerializer
+
+class AuthenticationInfoViewSet(ModelViewSet):
+    '''
+    CRUD ready model view for the AuthenticationInfo model.
+    '''
+    queryset = models.AuthenticationInfo.objects.all()
+    serializer_class = serializers.AuthenticationInfoSerializer
+
+
