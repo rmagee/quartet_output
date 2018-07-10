@@ -13,7 +13,7 @@
 #
 # Copyright 2018 SerialLab Corp.  All rights reserved.
 from quartet_output import models
-from rest_framework.serializers import ModelSerializer, PrimaryKeyRelatedField
+from rest_framework.serializers import ModelSerializer
 
 
 class EndPointSerializer(ModelSerializer):
@@ -37,10 +37,24 @@ class AuthenticationInfoSerializer(ModelSerializer):
         extra_kwargs = {'password': {'write_only': True}}
 
 
+class ReadOnlyEPCISOutputCriteriaSerializer(ModelSerializer):
+    """
+    Default read_only serializer for the EPCISOutputCriteria model.
+    """
+    end_point = EndPointSerializer(many=False, read_only=True)
+    authentication_info = AuthenticationInfoSerializer(many=False,
+                                                       read_only=True)
+
+    class Meta:
+        model = models.EPCISOutputCriteria
+        fields = '__all__'
+
+
 class EPCISOutputCriteriaSerializer(ModelSerializer):
     """
     Default serializer for the EPCISOutputCriteria model.
     """
+
     class Meta:
         model = models.EPCISOutputCriteria
         fields = '__all__'

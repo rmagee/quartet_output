@@ -33,5 +33,10 @@ router.register(
     viewsets.EPCISOutputCriteriaViewSet,
     base_name='epcis-output-criteria'
 )
+router.register(
+    r'read-only-epcis-output-criteria',
+    viewsets.ReadOnlyCriteriaViewSet,
+    base_name='read-only-epcis-output-criteria'
+)
 
 urlpatterns = router.urls

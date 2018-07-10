@@ -52,6 +52,13 @@ class ViewTest(APITestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0].get('action'), 'ADD')
 
+    def test_read_only_epcis_output_criteria(self):
+        self._create_good_ouput_criterion()
+        url = reverse('read-only-epcis-output-criteria-list')
+        response = self.client.get(url)
+        self.assertIs(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0].get('action'), 'ADD')
 
     def _create_good_ouput_criterion(self):
         endpoint = self._create_endpoint()

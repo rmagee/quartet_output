@@ -14,7 +14,7 @@
 # Copyright 2018 SerialLab Corp.  All rights reserved.
 from quartet_output import models
 from quartet_output import serializers
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
 
 class EndPointViewSet(ModelViewSet):
@@ -39,4 +39,7 @@ class AuthenticationInfoViewSet(ModelViewSet):
     queryset = models.AuthenticationInfo.objects.all()
     serializer_class = serializers.AuthenticationInfoSerializer
 
+class ReadOnlyCriteriaViewSet(ReadOnlyModelViewSet):
+    queryset = models.EPCISOutputCriteria.objects.all()
+    serializer_class = serializers.ReadOnlyEPCISOutputCriteriaSerializer
 
