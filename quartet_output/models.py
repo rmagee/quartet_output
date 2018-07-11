@@ -184,7 +184,7 @@ class AuthenticationInfo(models.Model):
     )
     password = models.CharField(
         max_length=25,
-        verbose_name=_("password"),
+        verbose_name=_("Password"),
         help_text=_("The password for the user."),
         null=False
     )
