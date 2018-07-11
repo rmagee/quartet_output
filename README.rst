@@ -9,12 +9,45 @@ quartet_output
 .. image:: https://badge.fury.io/py/quartet_output.svg
     :target: https://badge.fury.io/py/quartet_output
 
-Output Rules and logic for QU4RTET supply chain messaging.
+Output Rules and logic for QU4RTET supply chain and trading-partner messaging.
+
+Intro
+-----
+The `quartet_output` module is responsible for inspecting inbound messages
+and, based on criteria defined by users, singling out some of those messages
+for further processing.  Once a message has been filtered, it is typically
+used to create a new message from some existing EPCIS data or to simply
+create a new message using the same data with the intent of sending that
+message to another system.
+
+Criteria
+--------
+The `quartet_output` module allows users to define *EPCIS Output Criteria*
+definitions.  These definitions allow users to instruct the module to look
+at inbound EPCIS events and look for events that meet certain selection
+criteria.  For example, users can define criteria that would inspect all
+inbound *Transaction Events* of action *ADD* from a specific *bizLocation*
+with a *Purchase Order* business transaction attached.  Once an event
+arrives meeting these criteria, the system allows a user to use that event
+to trigger the generation of a shipping event along with all of the serial
+numbers for the epcs specified in the triggering event.  Other scenarios are
+possible as well and, of course, users can implement *Rules* and *Steps* of
+their own that do just about anything once an inbound event has been filtered.
+
+Transport
+---------
+`quartet_output` allows users to configure transport configurations using
+both `EndPoint` and `AuthenticationInfo` database models.  These models are
+attached to the criteria that filter EPCIS events and allow the user to
+specify where messages should be sent once an event has been filtered and
+has triggered any outbound processing logic.
 
 Documentation
 -------------
 
-The full documentation is at https://serial-lab.gitlab.io/quartet_output
+The full documentation is located here:
+
+https://serial-lab.gitlab.io/quartet_output
 
 Quickstart
 ----------
