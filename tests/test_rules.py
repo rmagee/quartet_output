@@ -130,6 +130,8 @@ class TestQuartetOutput(TestCase):
                     self.assertEqual(len(event.child_epcs), 2)
             task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY]
             execute_queued_task(task_name=task_name)
+            task = Task.objects.get(name=task_name)
+            self.assertEqual(task.status, 'FINISHED')
 
     def test_rule_with_agg_comm_output_put(self):
         self._create_good_ouput_criterion()
@@ -163,6 +165,8 @@ class TestQuartetOutput(TestCase):
                     self.assertEqual(len(event.child_epcs), 2)
             task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY]
             execute_queued_task(task_name=task_name)
+            task = Task.objects.get(name=task_name)
+            self.assertEqual(task.status, 'FINISHED')
 
     def test_rule_with_agg_mulit_comm(self):
         self._create_good_ouput_criterion()
