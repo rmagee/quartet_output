@@ -28,7 +28,7 @@ class HttpTransportMixin:
     Add to steps that need to support sending http messages.
     '''
 
-    def post_data(self, data_context_key: str, rule_context: RuleContext,
+    def post_data(self, data: str, rule_context: RuleContext,
                   output_criteria: EPCISOutputCriteria,
                   content_type='application/xml',
                   file_extension='xml',
@@ -42,16 +42,13 @@ class HttpTransportMixin:
         info.
         :return: The response.
         '''
-        logger.debug('Using context key %s to POST data.', data_context_key)
-        data_stream = StringIO(rule_context.context[data_context_key]).read()
+        data_stream = data
         file_name = '{0}.{1}'.format(rule_context.task_name, file_extension)
-        files = {'file': (file_name, data_stream)}
         logger.debug('Posting data with urn %s and file_name %s and '
                      'extension %s.',
                      output_criteria.end_point.urn,
                      file_name,
                      file_extension)
-        func = requests.post if not http_put else requests.put
         if not http_put:
             func = requests.post
             files = {'file': data_stream}
@@ -68,20 +65,26 @@ class HttpTransportMixin:
         )
         return response
 
-    def put_data(self, data_context_key: str, rule_context: RuleContext,
-                  output_criteria: EPCISOutputCriteria,
-                  content_type='application/xml',
-                  file_exension='xml'):
+    def put_data(self, data: str, rule_context: RuleContext,
+                 output_criteria: EPCISOutputCriteria,
+                 content_type='application/xml',
+                 file_exension='xml'):
         '''
         :param data: The data to PUT.
         :param output_criteria: The output criteria containing the connection
         info.
         :return: The response.
         '''
-        return self.post_data(data_context_key, rule_context, output_criteria,
-                       content_type, file_exension, http_put=True)
+        return self.post_data(data, rule_context, output_criteria,
+                              content_type, file_exension, http_put=True)
 
     def get_auth(self, output_criteria):
+        """
+        Get's the authentication method and credentials from the
+        EPCISOutputCriteria record.
+        :param output_criteria: An EPCISOutputCriteria model instance.
+        :return: A `requests.auth.HTTPBasicAuth` or `HTTPProxyAuth`
+        """
         auth_info = output_criteria.authentication_info
         auth = None
         if auth_info:

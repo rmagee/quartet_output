@@ -87,6 +87,8 @@ class EventEvaluation:
                                          epc_output_criteria.source_id)
                 if ret:
                     break
+        else:
+            ret = True
         return ret
 
     def check_destinations(self, event: events.EPCISBusinessEvent,
@@ -114,6 +116,8 @@ class EventEvaluation:
                       )
                 if ret:
                     break
+        else:
+            ret = True
         return ret
 
     def check_event_type(self, event: events.EPCISEvent, event_type: str):

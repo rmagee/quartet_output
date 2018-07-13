@@ -14,7 +14,7 @@ from EPCPyYes.core.v1_2.CBV.dispositions import Disposition
 from EPCPyYes.core.v1_2.CBV.business_steps import BusinessSteps
 from quartet_epcis.parsing.business_parser import BusinessEPCISParser
 from quartet_capture.models import Rule, Step, StepParameter, Task
-from quartet_capture.tasks import execute_rule
+from quartet_capture.tasks import execute_rule, execute_queued_task
 from quartet_output.steps import SimpleOutputParser, ContextKeys
 from quartet_output.models import EPCISOutputCriteria
 from django.test import TestCase
@@ -128,6 +128,8 @@ class TestQuartetOutput(TestCase):
                     self.assertEqual(len(event.child_epcs), 5)
                 else:
                     self.assertEqual(len(event.child_epcs), 2)
+            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY]
+            execute_queued_task(task_name=task_name)
 
     def test_rule_with_agg_comm_output_put(self):
         self._create_good_ouput_criterion()
@@ -159,6 +161,8 @@ class TestQuartetOutput(TestCase):
                     self.assertEqual(len(event.child_epcs), 5)
                 else:
                     self.assertEqual(len(event.child_epcs), 2)
+            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY]
+            execute_queued_task(task_name=task_name)
 
     def test_rule_with_agg_mulit_comm(self):
         self._create_good_ouput_criterion()

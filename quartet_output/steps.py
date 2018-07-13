@@ -69,12 +69,19 @@ class ContextKeys(Enum):
     as a result of the events in the `FILTERED_EVENTS_KEY` will be placed under
     this key.  Subsequent Steps will use this key to find the aggregation
     events for further processing, sending, storing, rendering, etc.
+
+    CREATED_TASK_NAME_KEY
+    ---------------------
+    When the `CreateOutputTaskStep` creates a new task for deferred processing
+    it will store the value here for other interested steps to obtain if
+    necessary.
     """
     FILTERED_EVENTS_KEY = 'FILTERED_EVENTS'
     EPCIS_OUTPUT_CRITERIA_KEY = 'EPCIS_OUTPUT_CRITERIA'
     AGGREGATION_EVENTS_KEY = 'AGGREGATION_EVENTS'
     OBJECT_EVENTS_KEY = 'OBJECT_EVENTS'
     OUTBOUND_EPCIS_MESSAGE_KEY = 'OUTBOUND_EPCIS_MESSAGE'
+    CREATED_TASK_NAME_KEY = 'CREATED_TASK_NAME'
 
 
 class OutputParsingStep(EPCISParsingStep):
@@ -496,6 +503,7 @@ class CreateOutputTaskStep(rules.Step):
                 data, output_rule_name, 'Output', initial_status='WAITING',
                 task_parameters=[task_param], run_immediately=run_immediately
             )
+            rule_context.context[ContextKeys.CREATED_TASK_NAME_KEY] = task.name
             self.info('Created a new output task %s with rule %s',
                       task.name, output_rule_name)
 
@@ -539,7 +547,7 @@ class TransportStep(rules.Step, HttpTransportMixin):
             # check the url/urn to see if we support the protocol
             protocol = self._supports_protocol(output_criteria.end_point)
             self.info('Protocol supported.  Sending message.')
-            self._send_message(protocol, rule_context, output_criteria)
+            self._send_message(data, protocol, rule_context, output_criteria)
 
         except models.TaskParameter.DoesNotExist:
             raise capture_errors.ExpectedTaskParameterError(
@@ -550,6 +558,7 @@ class TransportStep(rules.Step, HttpTransportMixin):
 
     def _send_message(
         self,
+        data: str,
         protocol: str,
         rule_context: RuleContext,
         output_criteria: EPCISOutputCriteria
@@ -571,7 +580,7 @@ class TransportStep(rules.Step, HttpTransportMixin):
             else:
                 func = self.put_data
             func(
-                ContextKeys.OUTBOUND_EPCIS_MESSAGE_KEY.value,
+                data,
                 rule_context,
                 output_criteria,
                 content_type,
