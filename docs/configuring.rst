@@ -21,7 +21,7 @@ https://hub.docker.com/r/mendhak/http-https-echo/
 For example, we will define an endpoint to our local echo server as such:
 
 * **Name:** Local Echo Server
-* URN: http://localhost
+* **URN**: http://localhost
 
 As you can imagine, this could be any URN value to any external system.
 Defining the transport protocol is part of the URN structure...more on that
@@ -52,7 +52,7 @@ For this example walk-through, let's configure a criteria record that looks
 for EPCIS Transaction Events that are of Action ADD and have a bizLocation
 of *urn:epc:id:sgln:305555.123456.0*:
 
-* **Name:** Test Transaction Criteria
+* Name: Test Transaction Criteria
 * Action: ADD
 * Event Type: Transaction
 * Business Location: urn:epc:id:sgln:305555.123456.0
@@ -78,26 +78,26 @@ rule with the following attributes (use QUARTET-UI to do this):
 * **Name:** EPCIS Output Filter
 * **Description:** Examines inbound data for output criteria.
 
-Set Up The Criteria / Filtering **Step:**
+Set Up The Criteria / Filtering Step
 ++++++++++++++++++++++++++++++++++++
-The first ***Step:*** in our *Rule* will be one that, while parsing EPCIS events,
+The first Step in our *Rule* will be one that, while parsing EPCIS events,
 looks through each event for the criteria we set up in our *EPCISOutputCriteria*
 record.  Configure a step with the following attributes:
 
 * **Step:**: Inspect EPCIS
 * **Description:** Parse and insepect EPCIS events using output criteria.
-* **Class Path:** quartet_output.steps.OutputParsing**Step:**
+* **Class Path:** quartet_output.steps.OutputParsingStep
 * **Execution Order:** 1
 
-"Tell" The Filter **Step:** To Use Our Critieria
+"Tell" The Filter Step To Use Our Critieria
 +++++++++++++++++++++++++++++++++++++++++++
 The filtering step we set up above needs to know that we want it to use
 our *Test Transaction Criteria*  that we defined at the beginning of this
-exercise.  We can do this by adding a ***Step:** Parameter* to the **Step:**.  Go ahead
-and add a ***Step:** Parameter* with the following values:
+exercise.  We can do this by adding a Step Parameter to the Step.  Go ahead
+and add a *Step Parameter* with the following values:
 
 * **Name:** EPCIS Output Criteria
-* Value: Test Transaction Criteria
+* **Value**: Test Transaction Criteria
 * **Description:** This is the name of the EPCIS Output Criteria record to use.
 
 What we are doing here is saying "when filtering EPCIS data, use the criteria
@@ -107,7 +107,7 @@ the data (EPCIS events) coming through against the criteria we set up.  If
 the step finds a matching event it will save it and pass on down to other
 steps in the *Rule*.
 
-Set Up a Commissioning Data **Step:** (Optional)
+Set Up a Commissioning Data Step (Optional)
 +++++++++++++++++++++++++++++++++++++++++++
 Let's say, for example, we've filtered out a Transaction Event that has
 5 epcs within it and we'd like to have the commissioning events for those
@@ -118,10 +118,10 @@ Create a step with the following configuration attributes:
 
 * **Step:**: Add Commissioning Data
 * **Description:** Adds commissioning events for filtered EPCs and their children.
-* **Class Path:** epcis_output.steps.AddCommissioningData**Step:**
+* **Class Path:** epcis_output.steps.AddCommissioningDataStep
 * **Execution Order:** 2
 
-Set Up an Aggregation Data **Step:** (Optional)
+Set Up an Aggregation Data Step (Optional)
 ++++++++++++++++++++++++++++++++++++++++++
 Let's say that we'd also like to include any aggregation events for any
 EPCs found in the filtered message- all the way down the packaging hierarchy
@@ -130,7 +130,7 @@ want all of the aggregation information for
 
 * **Step:**: Add Aggregation Data
 * **Description:** Adds aggregation events for included EPCs in any filtered events.
-* **Class Path:** quartet_output.steps.UnpackHierarchy**Step:**
+* **Class Path:** quartet_output.steps.UnpackHierarchyStep
 * **Execution Order:** 3
 
 Quick Review
@@ -151,7 +151,7 @@ events (commissioning events) and pass them downstream as well.  The third
 step will do something simililar by creating aggregation data for any EPCs
 found in the first filtered message.
 
-Set Up A **Step:** That Renders a Message
+Set Up A Step That Renders a Message
 ++++++++++++++++++++++++++++++++++++
 So the first three steps filter data and then send it "down" the rule to
 further steps.  The Aggregation and Commissioning steps both pass EPCPyYes
@@ -164,7 +164,7 @@ In QUARTET-UI, set up a step with the following:
 
 * **Step:**: Render EPCIS XML
 * **Description:** Pulls any EPCPyYes objects from the context and creates an XML message.
-* **Class Path:** quartet_output.steps.EPCPyYesOutput**Step:**
+* **Class Path:** quartet_output.steps.EPCPyYesOutputStep:
 * **Execution Order:** 4
 
 This step, again, will find any events that have been created by the prior two
@@ -186,14 +186,14 @@ Create a step with the following:
 
 * **Step:**: Queue Outbound Message
 * **Description:** Creates a Task in the rule engine for sending any outbound data.
-* **Class Path:** quartet_output.steps.CreateOutputTask**Step:**
+* **Class Path:** quartet_output.steps.CreateOutputTaskStep
 * Order: 5
 
 
 Set Up A Transport Rule
 -----------------------
 Here we will set up a Rule that takes data from the *Task* and sends it
-somewhere.  Keep in mind that the last *Rule* we defined had a ***Step:*** that
+somewhere.  Keep in mind that the last *Rule* we defined had a *Step* that
 created a *Task* with an outbound message...that's what we are intending to
 send with this *Rule*.
 
@@ -203,7 +203,7 @@ Create a new *Rule* with the following attributes:
 * **Description:** An output Rule for any data filtered by EPCIS Output Criteria
   rules.
 
-Create The Transport **Step:**
+Create The Transport Step
 -------------------------
 Now create a step that sends our task data.  Create a step with the following
 attributes:
@@ -211,7 +211,7 @@ attributes:
 * **Step:**: Send Data
 * **Description:** This will send the task message using the source EPCIS Output
   Critria EndPoint and Authentication Info.
-* **Class Path:** quartet_output.steps.Transport**Step:**
+* **Class Path:** quartet_output.steps.TransportStep
 * **Execution Order:** 1
 
 "Tell" The *Queue Outbound Message* **Step:** What Transport Rule to Use
@@ -219,11 +219,11 @@ attributes:
 Now that we have a rule that sends task data out, we need to tell the last
 step in our *EPCIS Output Filter* rule to queue messages for processing with
 our *Send Data* step.  Select the *Queue Outbound Message* step in our
-*EPCIS Output Filter* rule and then click on the *Add a New **Step:** Parameter*
-button.  Add a ***Step:** Parameter* with the following attributes:
+*EPCIS Output Filter* rule and then click on the *Add a New *Step Parameter*
+button.  Add a *Step* Parameter* with the following attributes:
 
 * **Name:** Output Rule
-* Value: Transport Rule
+* **Value**: Transport Rule
 
 Here we are telling the *Queue Outbound Message* step to create new tasks
 for execution by our *Transport Rule*.

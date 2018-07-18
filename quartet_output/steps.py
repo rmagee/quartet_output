@@ -160,9 +160,8 @@ class OutputParsingStep(EPCISParsingStep):
         parser.parse()
         self.info(_('Parsing complete.  %s matching events were found.') %
                   str(len(parser.filtered_events)))
-        if len(parser.filtered_events) > 0:
-            rule_context.context[
-                ContextKeys.FILTERED_EVENTS_KEY.value] = parser.filtered_events
+        rule_context.context[
+            ContextKeys.FILTERED_EVENTS_KEY.value] = parser.filtered_events
 
 
 class FilteredEventStepMixin:
@@ -500,8 +499,10 @@ class CreateOutputTaskStep(rules.Step):
             run_immediately = self.get_boolean_parameter('run-immediately',
                                                          default=False)
             task = create_and_queue_task(
-                data, output_rule_name, 'Output', initial_status='WAITING',
-                task_parameters=[task_param], run_immediately=run_immediately
+                data, output_rule_name,
+                'Output',
+                task_parameters=[task_param],
+                run_immediately=run_immediately
             )
             rule_context.context[ContextKeys.CREATED_TASK_NAME_KEY] = task.name
             self.info('Created a new output task %s with rule %s',
@@ -546,7 +547,8 @@ class TransportStep(rules.Step, HttpTransportMixin):
                       output_criteria)
             # check the url/urn to see if we support the protocol
             protocol = self._supports_protocol(output_criteria.end_point)
-            self.info('Protocol supported.  Sending message.')
+            self.info('Protocol supported.  Sending message to %s.' %
+                      output_criteria.end_point.urn)
             self._send_message(data, protocol, rule_context, output_criteria)
 
         except models.TaskParameter.DoesNotExist:

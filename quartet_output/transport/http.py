@@ -19,9 +19,12 @@ import requests
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth, HTTPProxyAuth
 from quartet_output.models import EndPoint, EPCISOutputCriteria
 from quartet_capture.rules import Step, RuleContext
-
+from quartet_output import __version__
 logger = getLogger(__name__)
 
+user_agent = 'quartet-output/{0}'.format(
+    __version__
+)
 
 class HttpTransportMixin:
     '''
@@ -61,7 +64,7 @@ class HttpTransportMixin:
             output_criteria.end_point.urn,
             files,
             auth=self.get_auth(output_criteria),
-            headers={'content-type': content_type}
+            headers={'content-type': content_type, 'user-agent': user_agent}
         )
         return response
 

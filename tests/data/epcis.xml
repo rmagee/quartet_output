@@ -6,7 +6,6 @@
         <EventList>
             <ObjectEvent>
                 <eventTime>2018-01-22T22:51:49.294565+00:00</eventTime>
-                <recordTime>2018-01-22T22:51:49.294565+00:00</recordTime>
                 <eventTimeZoneOffset>+00:00</eventTimeZoneOffset>
                 <epcList>
                     <epc>urn:epc:id:sgtin:305555.3555555.1</epc>
@@ -58,7 +57,6 @@
             </ObjectEvent>
             <AggregationEvent>
                 <eventTime>2018-01-22T22:51:49.294565+00:00</eventTime>
-                <recordTime>2018-01-22T22:51:49.294565+00:00</recordTime>
                 <eventTimeZoneOffset>+00:00</eventTimeZoneOffset>
                 <parentID>urn:epc:id:sgtin:305555.3555555.1</parentID>
                 <childEPCs>
@@ -119,7 +117,6 @@
             </AggregationEvent>
             <TransactionEvent>
                 <eventTime>2018-01-22T22:51:49.294565+00:00</eventTime>
-                <recordTime>2018-01-22T22:51:49.294565+00:00</recordTime>
                 <eventTimeZoneOffset>+00:00</eventTimeZoneOffset>
                 <bizTransactionList>
                     <bizTransaction type="urn:epcglobal:cbv:btt:po">
@@ -180,7 +177,6 @@
             <extension>
                 <TransformationEvent>
                     <eventTime>2018-01-29T18:50:20.847426+00:00</eventTime>
-                    <recordTime>2018-01-29T18:50:20.847426+00:00</recordTime>
                     <eventTimeZoneOffset>+00:00</eventTimeZoneOffset>
                     <baseExtension>
                         <eventID>9db05f77-e007-41a2-a6d9-140254b7ce5a</eventID>
