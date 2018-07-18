@@ -35,20 +35,13 @@ class EventEvaluation:
         :return: boolean - True or false.
         '''
         # check the event type
-        logger.debug('Looking for event type %s against %s',
-                     epc_output_criteria.event_type, str(event))
         event_type = self.check_event_type(
             event,
             epc_output_criteria.event_type
         )
-        logger.debug('Looking for action %s against %s',
-                     epc_output_criteria.action, event.action)
         action = self.check_action(
             event, epc_output_criteria.action
         )
-        logger.debug('Looking for bizlocation %s against %s',
-                     epc_output_criteria.biz_location,
-                     event.biz_location)
         biz_location = self.check_biz_location(
             event,
             epc_output_criteria.biz_location
