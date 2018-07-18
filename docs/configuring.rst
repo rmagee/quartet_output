@@ -580,3 +580,12 @@ right-clicking and selecting *File Upload*.:
             </EventList>
         </EPCISBody>
     </epcis:EPCISDocument>
+
+Examine The Results
+-------------------
+If all went well, you should see two tasks created after uploading that
+last batch of XML.  As a result of your upload, you should see the task
+created under the *EPCIS Output Filter* rule and another created under
+the *Transport Rule*.  In addition, if you are running the echo HTTP server
+(see the beginning of this tutorial), you should see that an outbound message
+was posted to it.
