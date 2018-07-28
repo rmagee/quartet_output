@@ -15,4 +15,7 @@ History
 
 1.1 July 28 2018
 ++++++++++++++++
-* Refined permissions on viewsets, models and views.
+* Refined permissions on viewsets, models and views.  Supports
+  DjangoModelPermissions as a project-level default setting on all APIs.
+* Convenience management commands for default group creation.
+
