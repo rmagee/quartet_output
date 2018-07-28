@@ -14,7 +14,7 @@
 # Copyright 2018 SerialLab Corp.  All rights reserved.
 import os
 import django
-from django.contrib.auth.models import Permission, User
+from django.contrib.auth.models import Group, User
 from django.db.models import Q
 os.environ['DJANGO_SETTINGS_MODULE'] = 'tests.settings'
 django.setup()
@@ -24,6 +24,7 @@ from EPCPyYes.core.v1_2.CBV.business_steps import BusinessSteps
 from rest_framework.test import APITestCase
 from django.urls import reverse
 from quartet_output import models
+from quartet_output.management.commands.create_output_groups import Command
 
 os.environ['DJANGO_SETTINGS_MODULE'] = 'tests.settings'
 django.setup()
@@ -34,12 +35,9 @@ class ViewTest(APITestCase):
         user = User.objects.create_user(username='testuser',
                                         password='unittest',
                                         email='testuser@seriallab.local')
-        permissions = Permission.objects.filter(
-            Q(codename__endswith='_epsisoutputcriteria') and
-            Q(codename__endswith='_authenticationinfo') and
-            Q(codename__endswith='_endpoint')
-        )
-        user.user_permissions.set(permissions)
+        Command().handle()
+        oag = Group.objects.get(name='Output Access')
+        user.groups.add(oag)
         user.save()
         self.client.force_authenticate(user=user)
         self.user = user
