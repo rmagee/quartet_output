@@ -14,7 +14,8 @@
 # Copyright 2018 SerialLab Corp.  All rights reserved.
 import os
 import django
-
+from django.contrib.auth.models import Permission, User
+from django.db.models import Q
 os.environ['DJANGO_SETTINGS_MODULE'] = 'tests.settings'
 django.setup()
 from EPCPyYes.core.v1_2.events import EventType
@@ -29,6 +30,19 @@ django.setup()
 
 
 class ViewTest(APITestCase):
+    def setUp(self):
+        user = User.objects.create_user(username='testuser',
+                                        password='unittest',
+                                        email='testuser@seriallab.local')
+        permissions = Permission.objects.filter(
+            Q(codename__endswith='_epsisoutputcriteria') and
+            Q(codename__endswith='_authenticationinfo') and
+            Q(codename__endswith='_endpoint')
+        )
+        user.user_permissions.set(permissions)
+        user.save()
+        self.client.force_authenticate(user=user)
+        self.user = user
 
     def test_endpoint(self):
         self._create_endpoint()
