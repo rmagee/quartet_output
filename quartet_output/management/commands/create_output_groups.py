@@ -29,8 +29,8 @@ class Command(BaseCommand):
         )
         if created:
             permissions = Permission.objects.filter(
-                Q(codename__endswith='_epsisoutputcriteria') and
-                Q(codename__endswith='_authenticationinfo') and
+                Q(codename__endswith='_epsisoutputcriteria') |
+                Q(codename__endswith='_authenticationinfo') |
                 Q(codename__endswith='_endpoint')
             )
             group.permissions.set(
