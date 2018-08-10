@@ -42,8 +42,9 @@ class EPCISOutputCriteria(models.Model):
     name = models.CharField(
         max_length=150,
         verbose_name=_("Name"),
-        help_text=_("The name of the endpoint"),
-        null=False
+        help_text=_("The name of the criteria record"),
+        null=False,
+        unique=True
     )
     event_type = models.CharField(
         max_length=20,
@@ -158,7 +159,8 @@ class EndPoint(models.Model):
         max_length=150,
         verbose_name=_("Name"),
         help_text=_("The name of the endpoint"),
-        null=False
+        null=False,
+        unique=True
     )
     urn = models.CharField(
         max_length=1000,
