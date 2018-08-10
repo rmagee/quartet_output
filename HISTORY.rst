@@ -19,3 +19,6 @@ History
   DjangoModelPermissions as a project-level default setting on all APIs.
 * Convenience management commands for default group creation.
 
+Patches
++++++++
+* Added unique name requirements to output criteria and endpoints.
