@@ -450,6 +450,13 @@ class CreateOutputTaskStep(rules.Step):
     To configure what Rule this step will create the new task under,
     set the **Output Rule** step parameter value to the name of a rule to
     execute.
+
+    If the `Forward Data` *Step Parameter* is set to True, the step will
+    forward the inbound message (not the message data in the context) if
+    there are any events in the `rule_context.FILTERED_EVENTS_KEY` list.
+    Events in this list would mean that the output evaluation was successful
+    and that the **ENTIRE** inbound message should be sent somewhere using
+    the *Endpoint* defined in the output criteria.
     '''
 
     def execute(self, data, rule_context: RuleContext):
@@ -460,16 +467,25 @@ class CreateOutputTaskStep(rules.Step):
         :param data: The data to process.
         :param rule_context: The rule context.
         '''
-        super().execute(data, rule_context)
-        # check the context to see if we have any epcis data to send
-        self.info(_('Checking the rule context for any data under the '
-                    'OUTBOUND_EPCIS_MESSAGE_KEY context key.'))
-        data = rule_context.context.get(
-            ContextKeys.OUTBOUND_EPCIS_MESSAGE_KEY.value
+        # get any filtered events from the context
+        filtered_events = rule_context.context.get(
+            ContextKeys.FILTERED_EVENTS_KEY.value,
+            []
         )
-
+        # see if we are just going to forward the inbound data or not
+        forward_data = self.get_boolean_parameter('Forward Data', False) and \
+            len(filtered_events) > 0
+        if not forward_data:
+            # check the context to see if we have any epcis data to send
+            self.info(_('Checking the rule context for any data under the '
+                        'OUTBOUND_EPCIS_MESSAGE_KEY context key.'))
+            data = rule_context.context.get(
+                ContextKeys.OUTBOUND_EPCIS_MESSAGE_KEY.value
+            )
         if data:
-            self.info(_('Data was found.  Checking for the Output Rule '
+            self.info(_('Data or a Forward Data parameter '
+                        'instruction was found.  '
+                        'Checking for the Output Rule '
                         'parameter in the step parameters.'))
             # get the output rule name
             output_rule_name = self.get_parameter(
@@ -498,6 +514,10 @@ class CreateOutputTaskStep(rules.Step):
             # create it in a waiting state until after parameters are supplied
             run_immediately = self.get_boolean_parameter('run-immediately',
                                                          default=False)
+            if forward_data:
+                self.info(_('The Forward Data parameter was specified. The '
+                          'step will send the inbound, unmodifed data to '
+                          'the specified Output Rule.'))
             task = create_and_queue_task(
                 data, output_rule_name,
                 'Output',
@@ -511,7 +531,10 @@ class CreateOutputTaskStep(rules.Step):
     def declared_parameters(self):
         return {
             "Output Rule": _('The name of the rule that will process the '
-                             'EPCIS output data created by this step.')
+                             'EPCIS output data created by this step.'),
+            "Forward Data": _('Boolean.  Whether or not to ignore data in the '
+                              'OUTBOUND_EPCIS_MESSAGE_KEY and just forward '
+                              'the inbound data to the output rule.')
         }
 
     def on_failure(self):

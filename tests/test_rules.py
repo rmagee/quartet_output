@@ -12,6 +12,7 @@ from django.core.exceptions import ValidationError
 from EPCPyYes.core.v1_2.events import EventType
 from EPCPyYes.core.v1_2.CBV.dispositions import Disposition
 from EPCPyYes.core.v1_2.CBV.business_steps import BusinessSteps
+from EPCPyYes.core.SBDH.sbdh import StandardBusinessDocumentHeader as sbdheader
 from quartet_epcis.parsing.business_parser import BusinessEPCISParser
 from quartet_capture.models import Rule, Step, StepParameter, Task
 from quartet_capture.tasks import execute_rule, execute_queued_task
@@ -128,6 +129,32 @@ class TestQuartetOutput(TestCase):
                     self.assertEqual(len(event.child_epcs), 5)
                 else:
                     self.assertEqual(len(event.child_epcs), 2)
+            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY]
+            execute_queued_task(task_name=task_name)
+            task = Task.objects.get(name=task_name)
+            self.assertEqual(task.status, 'FINISHED')
+
+    def test_rule_with_header_output(self):
+        self._create_good_header_criterion()
+        db_rule = self._create_rule()
+        db_step = self._create_step(db_rule)
+        db_task_step = self._create_task_step(db_rule)
+        self._add_forward_data_step_parameter(db_task_step)
+        db_step.order = 1
+        db_task_step.order = 2
+        db_step.save()
+        db_task_step.save()
+        db_rule2 = self._create_transport_rule()
+        self._create_transport_step(db_rule2)
+        curpath = os.path.dirname(__file__)
+        db_task = self._create_task(db_rule)
+        data_path = os.path.join(curpath, 'data/epcis.xml')
+        with open(data_path, 'r') as data_file:
+            context = execute_rule(data_file.read().encode(), db_task)
+            for event in context.context[
+                ContextKeys.FILTERED_EVENTS_KEY.value
+            ]:
+                self.assertIsInstance(event, sbdheader)
             task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY]
             execute_queued_task(task_name=task_name)
             task = Task.objects.get(name=task_name)
@@ -267,6 +294,26 @@ class TestQuartetOutput(TestCase):
         eoc.save()
         return eoc
 
+    def _create_good_header_criterion(self):
+        endpoint = self._create_endpoint()
+        auth = self._create_auth()
+        eoc = EPCISOutputCriteria()
+        eoc.name = "Test Criteria"
+        eoc.receiver_identifier = 'urn:epc:id:sgln:039999.111111.0'
+        eoc.authentication_info = auth
+        eoc.end_point = endpoint
+        eoc.save()
+        return eoc
+
+    def _create_good_header_criterion(self):
+        eoc = EPCISOutputCriteria()
+        eoc.name = 'Test Criteria'
+        eoc.receiver_identifier = 'urn:epc:id:sgln:039999.111111.0'
+        eoc.end_point = self._create_endpoint()
+        eoc.authentication_info = self._create_auth()
+        eoc.save()
+        return eoc
+
     def _create_endpoint(self):
         ep = models.EndPoint()
         ep.urn = 'http://testhost'
@@ -349,6 +396,7 @@ class TestQuartetOutput(TestCase):
         step_parameter.name = 'EPCIS Output Criteria'
         step_parameter.value = 'Test Criteria'
         step_parameter.save()
+        return step
 
     def _create_output_steps(self, rule):
         step = Step()
@@ -385,6 +433,16 @@ class TestQuartetOutput(TestCase):
         task.save()
         return task
 
+    def _add_forward_data_step_parameter(self, step: Step):
+        step_parameter = StepParameter()
+        step_parameter.step = step
+        step_parameter.name = 'Forward Data'
+        step_parameter.value = 'True'
+        step_parameter.description = 'Whether or not to construct new data ' \
+                                     'or to just forward the data in the ' \
+                                     'rule.'
+        step_parameter.save()
+
     def _create_task_step(self, rule):
         step = Step()
         step.rule = rule
@@ -409,6 +467,7 @@ class TestQuartetOutput(TestCase):
         step_parameter.description = 'The name of the rule to create a new ' \
                                      'task with.'
         step_parameter.save()
+        return step
 
     def _parse_test_data(self, test_file='data/epcis.xml',
                          parser_type=BusinessEPCISParser,

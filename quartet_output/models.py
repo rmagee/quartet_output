@@ -46,6 +46,20 @@ class EPCISOutputCriteria(models.Model):
         null=False,
         unique=True
     )
+    sender_identifier = models.CharField(
+        max_length=250,
+        verbose_name=_("SBDH Sender Identifier"),
+        help_text=_("Typically an SGLN but an identifier that is in the SBDH "
+                    "and uniquely identifies a sending entity."),
+        null=True
+    )
+    receiver_identifier = models.CharField(
+        max_length=250,
+        verbose_name=_("SBDH Receiver Identifier"),
+        help_text=_("Typically an SGLN but an identifier that is in the SBDH "
+                    "and uniquely identifies a receiving entity."),
+        null=True
+    )
     event_type = models.CharField(
         max_length=20,
         verbose_name=_("Event Type"),

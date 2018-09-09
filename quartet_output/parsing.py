@@ -12,9 +12,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Copyright 2018 SerialLab Corp.  All rights reserved.
-
+from EPCPyYes.core.SBDH import sbdh, template_sbdh
 from EPCPyYes.core.v1_2 import events as yes_events
-from quartet_output.evaluation import EventEvaluation
+from quartet_output.evaluation import EventEvaluation, HeaderEvaluation
 from quartet_output.models import EPCISOutputCriteria
 from quartet_epcis.parsing.parser import QuartetParser
 from quartet_epcis.parsing.business_parser import BusinessEPCISParser
@@ -102,7 +102,6 @@ class SimpleOutputParser(QuartetParser):
             self.filtered_events.append(epcis_event)
 
 
-
 class BusinessOutputParser(BusinessEPCISParser):
     """
     Inherits from the `BusinessEPCISParser` which, unlike the `QuartetParser`,
@@ -124,6 +123,7 @@ class BusinessOutputParser(BusinessEPCISParser):
         super().__init__(stream, event_cache_size, recursive_decommission)
         self.epcis_output_criteria = epcis_output_criteria
         self.event_evaluation = EventEvaluation()
+        self.header_evaluation = HeaderEvaluation()
         self.filtered_events = []
 
     def handle_aggregation_event(
@@ -176,6 +176,24 @@ class BusinessOutputParser(BusinessEPCISParser):
         """
         super().handle_transformation_event(epcis_event)
         self.evaluate(epcis_event)
+
+    def handle_sbdh(self,
+                    header: template_sbdh.StandardBusinessDocumentHeader):
+        '''
+        Hanles any business document headers and checks them for output
+        determination.
+        :param header:
+        :return: True or False if the header values match.
+        '''
+        super().handle_sbdh(header)
+        self.evaluate_header(header)
+
+    def evaluate_header(self, header: sbdh.StandardBusinessDocumentHeader):
+        if self.header_evaluation.evaluate_header(
+            header,
+            self.epcis_output_criteria
+        ):
+            self.filtered_events.append(header)
 
     def evaluate(self, epcis_event):
         if self.event_evaluation.evaluate_event(

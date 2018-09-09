@@ -15,6 +15,7 @@
 import logging
 from typing import List
 from EPCPyYes.core.v1_2 import events
+from EPCPyYes.core.SBDH import sbdh
 from quartet_output.models import EPCISOutputCriteria
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,59 @@ logger = logging.getLogger(__name__)
 SourceList = List[events.Source]
 DestinationList = List[events.Destination]
 
+
+class HeaderEvaluation:
+    def evaluate_header(self, header: sbdh.StandardBusinessDocumentHeader,
+                        epc_output_criteria: EPCISOutputCriteria):
+        '''
+        Returns a true or false if the header meets the output criteria.
+        :param header: The header to evaluate.
+        :param epc_output_criteria: The criteria to evaluate the event against.
+        :return: True or False
+        '''
+        if self._check_eval_config(epc_output_criteria):
+            found_sender = False
+            found_receiver = False
+            for partner in header.partners:
+                if partner.partner_type == sbdh.PartnerType.SENDER.value:
+                    found_sender = self._check_string(
+                        partner.partner_id.value,
+                        epc_output_criteria.sender_identifier
+                    )
+                    if found_sender: break
+            for partner in header.partners:
+                if partner.partner_type == sbdh.PartnerType.RECEIVER.value:
+                    found_receiver = self._check_string(
+                        partner.partner_id.value,
+                        epc_output_criteria.receiver_identifier
+                    )
+                    if found_receiver: break
+            return (found_sender and found_receiver)
+
+    def _check_string(self, event_val, criteria_val):
+        '''
+        Checks an event value against the expected value. If the criterial
+        val was not specified will return True since it's not for
+        consideration.
+        :param event_val: The event value.
+        :param criteria_val: The expected value.
+        :return: True or False
+        '''
+        ret = False if criteria_val else True
+        if criteria_val:
+            ret = (event_val == criteria_val)
+        return ret
+
+    def _check_eval_config(self, criteria: EPCISOutputCriteria):
+        '''
+        Returns a boolean value indicating whether or not there are any
+        criteria values configured for headers.  If there are no config values
+        to check then no checking is executed and false is returned.
+        :param criteria: The criteria to check
+        :return: True or False
+        '''
+        return criteria.sender_identifier is not None or \
+            criteria.receiver_identifier is not None
 
 class EventEvaluation:
 
@@ -34,40 +88,45 @@ class EventEvaluation:
         :param epc_output_criteria: The criteria to evaluate the event against.
         :return: boolean - True or false.
         '''
-        # check the event type
-        event_type = self.check_event_type(
-            event,
-            epc_output_criteria.event_type
-        )
-        action = self.check_action(
-            event, epc_output_criteria.action
-        )
-        biz_location = self.check_biz_location(
-            event,
-            epc_output_criteria.biz_location
-        )
-        disposition = self._check_string(
-            event.disposition,
-            epc_output_criteria.disposition
-        )
-        biz_step = self._check_string(
-            event.biz_step,
-            epc_output_criteria.biz_step
-        )
-        read_point = self._check_string(
-            event.read_point,
-            epc_output_criteria.read_point
-        )
-        source = self.check_sources(
-            event,
-            epc_output_criteria
-        )
-        destination = self.check_destinations(
-            event,
-            epc_output_criteria
-        )
-        return (event_type and action and biz_location and disposition
-                and biz_step and read_point and source and destination)
+        # make sure there's something to check to begin with- if the
+        # criteria is configured for only header values we can skip this
+        # and return false
+        can_evaluate = self._check_eval_config(epc_output_criteria)
+        if can_evaluate:
+            # check the event type
+            event_type = self.check_event_type(
+                event,
+                epc_output_criteria.event_type
+            )
+            action = self.check_action(
+                event, epc_output_criteria.action
+            )
+            biz_location = self.check_biz_location(
+                event,
+                epc_output_criteria.biz_location
+            )
+            disposition = self._check_string(
+                event.disposition,
+                epc_output_criteria.disposition
+            )
+            biz_step = self._check_string(
+                event.biz_step,
+                epc_output_criteria.biz_step
+            )
+            read_point = self._check_string(
+                event.read_point,
+                epc_output_criteria.read_point
+            )
+            source = self.check_sources(
+                event,
+                epc_output_criteria
+            )
+            destination = self.check_destinations(
+                event,
+                epc_output_criteria
+            )
+            return (event_type and action and biz_location and disposition
+                    and biz_step and read_point and source and destination)
 
     def check_sources(self, event: events.EPCISBusinessEvent,
                       epc_output_criteria: EPCISOutputCriteria):
@@ -184,3 +243,25 @@ class EventEvaluation:
         if criteria_val:
             ret = (event_val == criteria_val)
         return ret
+
+    def _check_eval_config(self, criteria: EPCISOutputCriteria):
+        '''
+        Returns a boolean value indicating whether or not there are any
+        criteria values configured for events.  If not, it will return false
+        and no events will be evaluated since there's no configuration for
+        event data.  This is ususally when the criteria configuration is
+        only looking for SBDH header values such as sender or receiver
+        SGLNs, etc.
+        :param criteria: The criteria to check
+        :return: True or False
+        '''
+        return criteria.biz_location is not None or\
+            criteria.action is not None or\
+            criteria.event_type is not None or\
+            criteria.biz_step is not None or\
+            criteria.disposition  is not None or\
+            criteria.source_id is not None or\
+            criteria.source_type is not None or\
+            criteria.destination_id is not None or\
+            criteria.destination_type is not None or\
+            criteria.read_point is not None
