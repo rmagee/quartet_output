@@ -8,6 +8,7 @@ test_quartet_output
 Tests for `quartet_output` models module.
 """
 import os
+import paramiko
 from django.core.exceptions import ValidationError
 from EPCPyYes.core.v1_2.events import EventType
 from EPCPyYes.core.v1_2.CBV.dispositions import Disposition
@@ -489,3 +490,61 @@ class TestQuartetOutput(TestCase):
 
     def tearDown(self):
         pass
+
+
+    
+class TestSFTPTransport(TestQuartetOutput):
+
+    def _create_endpoint(self):
+        ep = models.EndPoint()
+        ep.urn = 'sftp://testsftphost:22/upload'
+        ep.name = 'Test EndPoint SFTP'
+        ep.save()
+        return ep
+
+    def _create_auth(self):
+        auth = models.AuthenticationInfo()
+        auth.description = 'Unit test auth.'
+        auth.username = 'foo'
+        auth.password = 'pass'
+        auth.save()
+        return auth
+
+    def test_uploaded_file_output(self):
+        self._create_good_header_criterion()
+        db_rule = self._create_rule()
+        db_step = self._create_step(db_rule)
+        db_task_step = self._create_task_step(db_rule)
+        self._add_forward_data_step_parameter(db_task_step)
+        db_step.order = 1
+        db_task_step.order = 2
+        db_step.save()
+        db_task_step.save()
+        db_rule2 = self._create_transport_rule()
+        self._create_transport_step(db_rule2)
+        curpath = os.path.dirname(__file__)
+        db_task = self._create_task(db_rule)
+        data_path = os.path.join(curpath, 'data/epcis.xml')
+        with open(data_path, 'r') as data_file:
+            data_out = data_file.read()
+            context = execute_rule(data_out.encode(), db_task)
+            for event in context.context[
+                ContextKeys.FILTERED_EVENTS_KEY.value
+            ]:
+                self.assertIsInstance(event, sbdheader)
+            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY]
+            execute_queued_task(task_name=task_name)
+            task = Task.objects.get(name=task_name)
+            self.assertEqual(task.status, 'FINISHED')
+            try:
+                sftp_client = paramiko.SSHClient()
+                sftp_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                sftp_client.connect('testsftphost', '22', username='foo', password='pass', timeout=60)
+                sftp = sftp_client.open_sftp()
+                remote_file = sftp.open('/upload/'+task_name+'.xml', 'r')
+                data_back = remote_file.read()
+                self.assertEqual(data_back.decode(), data_out)
+            finally:
+                sftp_client.close()
+                
+                
