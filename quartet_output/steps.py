@@ -143,8 +143,7 @@ class OutputParsingStep(EPCISParsingStep):
         # get the parser to use from the parameter value.
         # the loose_enforcement parameter is from the base class
         # `EPCISParsingStep` and determines which parser to use.
-        parser_type = SimpleOutputParser if self.loose_enforcement \
-            else BusinessOutputParser
+        parser_type = self.get_parser_type()
         self.info('Parser Type %s', str(parser_type))
         try:
             if isinstance(data, File):
@@ -162,6 +161,15 @@ class OutputParsingStep(EPCISParsingStep):
                   str(len(parser.filtered_events)))
         rule_context.context[
             ContextKeys.FILTERED_EVENTS_KEY.value] = parser.filtered_events
+
+    def get_parser_type(self):
+        """
+        Override to provide a different parser type.
+        :return: The `type` of parser to use.
+        """
+        parser_type = SimpleOutputParser if self.loose_enforcement \
+            else BusinessOutputParser
+        return parser_type
 
 
 class FilteredEventStepMixin:
