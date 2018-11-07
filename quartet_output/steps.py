@@ -229,6 +229,15 @@ class FilteredEventStepMixin:
             ret = default
         return ret
 
+    def process_events(self, events: list):
+        """
+        Override to process any of the EPCPyYes events returned by the
+        database proxy.
+        :param events: The inbound events to process.
+        :return: Return a list of events that have been processed.
+        """
+        return events
+
 
 class UnpackHierarchyStep(rules.Step, FilteredEventStepMixin):
     """
@@ -276,6 +285,7 @@ class UnpackHierarchyStep(rules.Step, FilteredEventStepMixin):
 
         # use the db proxy to get the EPCPyYes aggregation event history back
         agg_events = self.db_proxy.get_aggregation_events_by_epcs(epcs)
+        agg_events = self.process_events(agg_events)
         # add the found events to the context for any downstream steps
         rule_context.context[
             ContextKeys.AGGREGATION_EVENTS_KEY.value] = agg_events
@@ -358,6 +368,7 @@ class AddCommissioningDataStep(rules.Step, FilteredEventStepMixin):
             all_children | parents,
             event_type=EventTypeChoicesEnum.OBJECT.value
         )
+        all_events = self.process_events(all_events)
         self.info('Adding %s Object events to the rule context.',
                   len(all_events))
         rule_context.context[ContextKeys.OBJECT_EVENTS_KEY.value] = all_events
@@ -483,7 +494,7 @@ class CreateOutputTaskStep(rules.Step):
         )
         # see if we are just going to forward the inbound data or not
         forward_data = self.get_boolean_parameter('Forward Data', False) and \
-            len(filtered_events) > 0
+                       len(filtered_events) > 0
         if not forward_data:
             # check the context to see if we have any epcis data to send
             self.info(_('Checking the rule context for any data under the '
@@ -525,8 +536,8 @@ class CreateOutputTaskStep(rules.Step):
                                                          default=False)
             if forward_data:
                 self.info(_('The Forward Data parameter was specified. The '
-                          'step will send the inbound, unmodifed data to '
-                          'the specified Output Rule.'))
+                            'step will send the inbound, unmodifed data to '
+                            'the specified Output Rule.'))
             task = create_and_queue_task(
                 data, output_rule_name,
                 'Output',
