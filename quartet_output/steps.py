@@ -23,6 +23,7 @@ from EPCPyYes.core.v1_2 import template_events
 from quartet_capture.rules import RuleContext
 from quartet_output import errors
 from quartet_output.transport.http import HttpTransportMixin
+from quartet_output.transport.sftp import SftpTransportMixin
 from quartet_output.models import EPCISOutputCriteria, EndPoint
 from quartet_output.parsing import SimpleOutputParser, BusinessOutputParser
 from quartet_capture import models, rules, errors as capture_errors
@@ -549,7 +550,7 @@ class CreateOutputTaskStep(rules.Step):
         pass
 
 
-class TransportStep(rules.Step, HttpTransportMixin):
+class TransportStep(rules.Step, HttpTransportMixin, SftpTransportMixin):
     '''
     Uses the transport information within the `EPCISOutputCriteria` placed
     on the context under the EPCIS_OUTPUT_CRITERIA_KEY to send any data that
@@ -619,6 +620,12 @@ class TransportStep(rules.Step, HttpTransportMixin):
                 content_type,
                 file_extension
             )
+        elif protocol.lower() == 'sftp':
+            self.sftp_put(data,
+                          rule_context,
+                          output_criteria,
+                          content_type,
+                          file_extension)
 
     def _supports_protocol(self, endpoint: EndPoint):
         '''
@@ -632,7 +639,7 @@ class TransportStep(rules.Step, HttpTransportMixin):
         parse_result = urlparse(
             endpoint.urn
         )
-        if parse_result.scheme.lower() in ['http', 'https']:
+        if parse_result.scheme.lower() in ['http', 'https', 'sftp']:
             return parse_result.scheme
         else:
             raise errors.ProtocolNotSupportedError(_(
