@@ -13,7 +13,7 @@
 #
 # Copyright 2018 SerialLab Corp.  All rights reserved.
 import io
-import requests
+from copy import copy
 from urllib.parse import urlparse
 from enum import Enum
 from django.utils.translation import gettext as _
@@ -343,7 +343,7 @@ class AddCommissioningDataStep(rules.Step, FilteredEventStepMixin):
         :param rule_context: The rule context to add any created events to.
         :return:
         '''
-        epcs = self.get_epc_list(epcis_event)
+        epcs = copy(self.get_epc_list(epcis_event))
         parent = self.get_parent_epc(epcis_event)
         if parent: epcs.append(parent)
         # find if there are any top-level entries- this is a much more
@@ -370,6 +370,8 @@ class AddCommissioningDataStep(rules.Step, FilteredEventStepMixin):
             all_children | parents,
             event_type=EventTypeChoicesEnum.OBJECT.value
         )
+        # remove any non-commissioning object events
+        all_events = [e for e in all_events if e.action == 'ADD']
         all_events = self.process_events(all_events)
         self.info('Adding %s Object events to the rule context.',
                   len(all_events))
