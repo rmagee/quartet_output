@@ -207,7 +207,7 @@ class FilteredEventStepMixin:
         :param epcis_event:
         :return: A list of EPCS.
         """
-        if isinstance(epcis_event, events.ObjectEvent):
+        if isinstance(epcis_event, events.AggregationEvent):
             ret = epcis_event.child_epcs
         else:
             ret = epcis_event.epc_list
@@ -280,9 +280,11 @@ class UnpackHierarchyStep(rules.Step, FilteredEventStepMixin):
                       'and Object events may do so.'))
             else:
                 epcs = epcs + self.get_epc_list(epcis_event)
-                if epcis_event.parent_id:
+                try:
                     epcs.append(epcis_event.parent_id)
-
+                except AttributeError:
+                    pass
+                
         # use the db proxy to get the EPCPyYes aggregation event history back
         agg_events = self.db_proxy.get_aggregation_events_by_epcs(epcs)
         agg_events = self.process_events(agg_events)
