@@ -58,7 +58,7 @@ class SftpTransportMixin:
             remote_path = join(parsed_urn.path, file_name)
             sftp_client.connect(parsed_urn.hostname, parsed_urn.port, **auth, timeout=60)
             sftp = sftp_client.open_sftp()
-            result = sftp.putfo(data_stream, remote_path, confirm=True)
+            result = sftp.putfo(data_stream, remote_path, confirm=False)
         finally:
             if sftp_client:
                 sftp_client.close()
