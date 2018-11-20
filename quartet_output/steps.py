@@ -348,7 +348,8 @@ class AddCommissioningDataStep(rules.Step, FilteredEventStepMixin):
         if parent: epcs.append(parent)
         # find if there are any top-level entries- this is a much more
         # efficient database query
-        tops = self.db_proxy.get_top_entries(epcs)
+        tops = self.db_proxy.get_top_entries(epcs,
+                                             select_for_update=False)
         # if there were any tops, remove them from the epcs list so we don't
         # double our efforts
         [epcs.remove(top.identifier) for top in tops]
@@ -388,7 +389,8 @@ class AddCommissioningDataStep(rules.Step, FilteredEventStepMixin):
         # object event of commissioning so we have them already, now we
         # need to see if there are any "parents" in the child list
         # of the event and add those children as well.
-        all_children = self.db_proxy.get_entries_by_parents(parent_entries)
+        all_children = self.db_proxy.get_entries_by_parents(parent_entries,
+                                                            select_for_update=False)
         for child in all_children:
             if child.is_parent:
                 all_children = all_children | self.handle_parent_entries(
