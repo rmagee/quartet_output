@@ -368,7 +368,7 @@ class AddCommissioningDataStep(rules.Step, FilteredEventStepMixin):
         all_children = all_children | self.handle_parent_entries(parents)
         # now find all the commissioning events for these
         all_events = self.db_proxy.get_events_by_entry_list(
-            all_children | parents,
+            all_children | parents | tops,
             event_type=EventTypeChoicesEnum.OBJECT.value
         )
         # remove any non-commissioning object events
