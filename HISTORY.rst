@@ -29,3 +29,5 @@ Patches
   forward data based on that.
 * Added ability to forward data on the
   output task by specifying a "Forward Data" parameter.
+* Fixed error with top level EPCs not being pulled within the
+  AddCommissioningDataStep.
