@@ -13,6 +13,7 @@
 #
 # Copyright 2018 SerialLab Corp.  All rights reserved.
 import io
+import requests
 from copy import copy
 from urllib.parse import urlparse
 from enum import Enum
@@ -625,18 +626,35 @@ class TransportStep(rules.Step, HttpTransportMixin, SftpTransportMixin):
         content_type = self.get_parameter('content-type', 'application/xml')
         file_extension = self.get_parameter('file-extension', 'xml')
         put_data = self.get_boolean_parameter('put-data')
+        body_raw = self.get_boolean_parameter('body-raw', True)
         if protocol.lower() in ['http', 'https']:
             if not put_data:
-                func = self.post_data
+                resp = self.post_data(
+                    data,
+                    rule_context,
+                    output_criteria,
+                    content_type,
+                    file_extension,
+                    False,
+                    body_raw
+                )
             else:
-                func = self.put_data
-            func(
-                data,
-                rule_context,
-                output_criteria,
-                content_type,
-                file_extension
-            )
+                resp = self.put_data(
+                    data,
+                    rule_context,
+                    output_criteria,
+                    content_type,
+                    file_extension,
+                    body_raw
+                )
+            try:
+                resp.raise_for_status()
+            except requests.exceptions.HTTPError as error:
+                self.info(error)
+                self.info(error.response.text)
+                raise
+            if resp.text:
+                self.info("Response Receive: %s", resp.text)
         elif protocol.lower() == 'sftp':
             self.sftp_put(data,
                           rule_context,
@@ -674,5 +692,7 @@ class TransportStep(rules.Step, HttpTransportMixin, SftpTransportMixin):
                             'http posts, puts, etc. Default is application/'
                             'xml',
             'file-extension': 'The file extension to specify when posting and '
-                              'putting data via http. Default is xml'
+                              'putting data via http. Default is xml',
+            'body-raw': 'Whether or not the data should be sent as raw body or file attachment.'
+                        'Defaults to True.',
         }
