@@ -9,7 +9,8 @@ quartet_output
 .. image:: https://badge.fury.io/py/quartet_output.svg
     :target: https://badge.fury.io/py/quartet_output
 
-Output Rules and logic for QU4RTET supply chain and trading-partner messaging.
+Output Rules and logic for the QU4RTET open-source EPCIS / Level-4 
+supply chain and trading-partner messaging framework.
 
 Intro
 -----
