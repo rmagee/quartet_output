@@ -35,7 +35,8 @@ class HttpTransportMixin:
                   output_criteria: EPCISOutputCriteria,
                   content_type='application/xml',
                   file_extension='xml',
-                  http_put=False):
+                  http_put=False,
+                  body_raw=True):
         '''
         :param data_context_key: The key within the rule_context that contains
          the data to post.  If being invoked from the internals of this
@@ -43,6 +44,7 @@ class HttpTransportMixin:
          `quartet_output.steps.ContextKeys` Enum.
         :param output_criteria: The output criteria containing the connection
         info.
+        :param body_raw: Whether or not the data should be sent as raw body. Defaults to True.
         :return: The response.
         '''
         data_stream = data
@@ -54,12 +56,18 @@ class HttpTransportMixin:
                      file_extension)
         if not http_put:
             func = requests.post
-            files = {'file': data_stream}
+            if body_raw:
+                files = data_stream
+            else:
+                files = {'file': data_stream}
         else:
             func = requests.put
             file_name = '{0}.{1}'.format(rule_context.task_name,
                                          file_extension)
-            files = {'file': (file_name, data_stream)}
+            if body_raw:
+                files = data_stream
+            else:
+                files = {'file': (file_name, data_stream)}
         response = func(
             output_criteria.end_point.urn,
             files,
@@ -71,15 +79,17 @@ class HttpTransportMixin:
     def put_data(self, data: str, rule_context: RuleContext,
                  output_criteria: EPCISOutputCriteria,
                  content_type='application/xml',
-                 file_exension='xml'):
+                 file_exension='xml',
+                 body_raw=True):
         '''
         :param data: The data to PUT.
         :param output_criteria: The output criteria containing the connection
         info.
+        :param body_raw: Whether or not the data should be sent as raw body. Defaults to True.
         :return: The response.
         '''
         return self.post_data(data, rule_context, output_criteria,
-                              content_type, file_exension, http_put=True)
+                              content_type, file_exension, http_put=True, body_raw=body_raw)
 
     def get_auth(self, output_criteria):
         """
