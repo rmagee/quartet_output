@@ -405,6 +405,45 @@ class AddCommissioningDataStep(rules.Step, FilteredEventStepMixin):
     def declared_parameters(self):
         return super().declared_parameters()
 
+class AddEventsByMessageStep(rules.Step, FilteredEventStepMixin):
+    """
+    This step will look at the rule context FILTERED_EVENTS_KEY for any filtered
+    EPCIS events.  If any are found, this step will use those events to create
+    look up the message id of each and add all messages that were part of
+    that message.  This is typically used to forward on all inbound event data
+    after it has been parsed.
+    """
+    def execute(self, data, rule_context: RuleContext):
+        '''
+        Looks for any filtered events and then creates any object events
+        associated with the epcs in the filtered event.
+        :param data: The rule data (not used by this step)
+        :param rule_context: The rule context.
+        '''
+        # check for filtered events in the rule context
+        epcis_events = rule_context.context.get(
+            ContextKeys.FILTERED_EVENTS_KEY.value, []
+        )
+        # set this to use the mixin
+        self.rule_context = rule_context
+        self.info('%s filtered events have been found. Processing',
+                  len(epcis_events))
+        for epcis_event in epcis_events:
+            self.process_event(epcis_event, rule_context)
+        self.info('Processing complete.')
+
+    def process_event(self, epcis_event: events.EPCISBusinessEvent,
+                      rule_context: RuleContext):
+        """
+        Processes any filtered events.
+        :param epcis_event: A filtered event.
+        :param rule_context: The rule context for this step.
+        :return: None
+        """
+        EPCISDBProxy().get_full_message(
+
+        )
+
 
 class EPCPyYesOutputStep(rules.Step, FilteredEventStepMixin):
     """
@@ -650,8 +689,7 @@ class TransportStep(rules.Step, HttpTransportMixin, SftpTransportMixin):
             try:
                 resp.raise_for_status()
             except requests.exceptions.HTTPError as error:
-                self.info(error)
-                self.info(error.response.text)
+                self.error(error.response.text)
                 raise
             if resp.text:
                 self.info("Response Receive: %s", resp.text)
