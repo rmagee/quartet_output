@@ -229,3 +229,6 @@ class AuthenticationInfo(models.Model):
         help_text=_("Any public key info if applicable."),
         null=True
     )
+
+    def __str__(self):
+        return self.username
