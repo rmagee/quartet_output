@@ -17,7 +17,7 @@ from django.contrib import admin
 from quartet_output import models
 
 class EndPointAdmin(admin.ModelAdmin):
-    list_display = ('name', 'url')
+    list_display = ('name', 'urn')
 
 class CriteriaAdmin(admin.ModelAdmin):
     list_display = (
