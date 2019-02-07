@@ -187,6 +187,11 @@ class EndPoint(models.Model):
     def __str__(self):
         return self.name
 
+    class Meta:
+        verbose_name = _('End Point')
+        verbose_name_plural = _('End Points')
+        
+
 class AuthenticationInfo(models.Model):
     """
     Holds data relative to basic auth needed by EndPoints for HTTP and other
@@ -232,3 +237,7 @@ class AuthenticationInfo(models.Model):
 
     def __str__(self):
         return self.username
+
+    class Meta:
+        verbose_name = _('Authentication Info')
+        verbose_name_plural = _('Authentication Info')
