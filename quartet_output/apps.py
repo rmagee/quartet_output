@@ -19,3 +19,4 @@ from django.apps import AppConfig
 
 class QuartetOutputConfig(AppConfig):
     name = 'quartet_output'
+    verbose_name = 'QU4RTET Output'
