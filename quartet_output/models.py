@@ -190,7 +190,7 @@ class EndPoint(models.Model):
     class Meta:
         verbose_name = _('End Point')
         verbose_name_plural = _('End Points')
-        
+
 
 class AuthenticationInfo(models.Model):
     """
