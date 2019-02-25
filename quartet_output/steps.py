@@ -14,6 +14,8 @@
 # Copyright 2018 SerialLab Corp.  All rights reserved.
 import io
 import requests
+import time
+from threading import Thread
 from copy import copy
 from urllib.parse import urlparse
 from enum import Enum
@@ -285,7 +287,7 @@ class UnpackHierarchyStep(rules.Step, FilteredEventStepMixin):
                     epcs.append(epcis_event.parent_id)
                 except AttributeError:
                     pass
-                
+
         # use the db proxy to get the EPCPyYes aggregation event history back
         agg_events = self.db_proxy.get_aggregation_events_by_epcs(epcs)
         agg_events = self.process_events(agg_events)
@@ -405,6 +407,7 @@ class AddCommissioningDataStep(rules.Step, FilteredEventStepMixin):
     def declared_parameters(self):
         return super().declared_parameters()
 
+
 class AddEventsByMessageStep(rules.Step, FilteredEventStepMixin):
     """
     This step will look at the rule context FILTERED_EVENTS_KEY for any filtered
@@ -413,6 +416,7 @@ class AddEventsByMessageStep(rules.Step, FilteredEventStepMixin):
     that message.  This is typically used to forward on all inbound event data
     after it has been parsed.
     """
+
     def execute(self, data, rule_context: RuleContext):
         '''
         Looks for any filtered events and then creates any object events
@@ -465,17 +469,23 @@ class EPCPyYesOutputStep(rules.Step, FilteredEventStepMixin):
         prepend_filtered_events = self.get_boolean_parameter(
             'Prepend Filtered Events', False
         )
+        only_filtered = self.get_boolean_parameter(
+            'Only Render Filtered Events', False
+        )
         oevents = rule_context.context.get(ContextKeys.OBJECT_EVENTS_KEY.value,
                                            [])
         aggevents = rule_context.context.get(
             ContextKeys.AGGREGATION_EVENTS_KEY.value, [])
-        if append_filtered_events:
-            if prepend_filtered_events:
-                all_events = self.get_filtered_events() + oevents + aggevents
-            else:
-                all_events = oevents + aggevents + self.get_filtered_events()
+        if only_filtered:
+            all_events = self.get_filtered_events()
         else:
-            all_events = oevents + aggevents
+            if append_filtered_events:
+                if prepend_filtered_events:
+                    all_events = self.get_filtered_events() + oevents + aggevents
+                else:
+                    all_events = oevents + aggevents + self.get_filtered_events()
+            else:
+                all_events = oevents + aggevents
         if len(all_events) > 0:
             epcis_document = template_events.EPCISEventListDocument(all_events)
             if self.get_boolean_parameter('JSON', False):
@@ -499,12 +509,17 @@ class EPCPyYesOutputStep(rules.Step, FilteredEventStepMixin):
                                          'added to the beginning of the EPCIS '
                                          'EventList- otherwise they will be '
                                          'added to the end.'),
+            "Only Render Filtered Events": _('If set to True, the step will '
+                                           'only render the filtered events. '
+                                           'If this is true, Append Filtered '
+                                           'Events and Prepend Filtered '
+                                           'Events will be ignored.'),
             "JSON": _('If set to True then the output message for the EPCPyYEs'
                       'events will be JSON.'),
         }
 
     def on_failure(self):
-        super().on_failure()
+        pass
 
 
 class CreateOutputTaskStep(rules.Step):
@@ -734,3 +749,108 @@ class TransportStep(rules.Step, HttpTransportMixin, SftpTransportMixin):
             'body-raw': 'Whether or not the data should be sent as raw body or file attachment.'
                         'Defaults to True.',
         }
+
+
+class DelayStep(rules.Step):
+    """
+    Will simply introduce a delay (in seconds) within a rule.  This
+    step has a default delay setting of one second but can be configured
+    to allow uo to ten seconds of delay via a Timeout Interval step
+    parameter.
+    """
+
+    def execute(self, data, rule_context: RuleContext):
+        self.info('Checking for the Timeout Interval step parameter. '
+                  'The default is 1 second.  The parameter value is '
+                  'in seconds with a max of 10.')
+        timeout_interval = self.get_parameter(
+            parameter_name='Timeout Interval', default=1
+        )
+        # if it comes from the database it will be a string
+        timeout_interval = int(timeout_interval)
+        self.info(
+            'Sleeping the thread for %s seconds...' % timeout_interval)
+        time.sleep(timeout_interval)
+
+    @property
+    def declared_parameters(self):
+        return {
+            'Timeout Interval': 'The amount of time in seconds to pause the '
+                                'rule.'
+        }
+
+    def on_failure(self):
+        pass
+
+
+class EPCPyYesFilteredEventOutputStep(rules.Step, FilteredEventStepMixin):
+    """
+    Very similar to the EPCPyYesOutput step except that this step will
+    only render the filtered events and place them into the same outbound
+    OUTBOUND_EPCIS_MESSAGE_KEY context key for processing by a
+    CreateOutputTaskStep later in the rule for example.
+    """
+    def execute(self, data, rule_context: RuleContext):
+        """
+        Will pull any filtered events off of the rule context using the
+        FILTERED_EVENTS_KEY context key.
+        :param data: The data coming into the step from the rule.
+        :param rule_context: A reference to the rule context.
+        """
+        self.rule_context = rule_context
+        filtered_events = self.get_filtered_events()
+        self.info('Found %s filtered events.' % len(filtered_events))
+        if len(filtered_events) >= 0:
+            epcis_document = template_events.EPCISEventListDocument(filtered_events)
+            if self.get_boolean_parameter('JSON', False):
+                data = epcis_document.render_json()
+            else:
+                data = epcis_document.render()
+            self.info('Warning: this step is overwriting the Outbound '
+                         'EPCIS Message key context key data.  If any data '
+                         'was in this key prior to this step and had not '
+                         'yet been processed, it will have been overwritten.')
+            rule_context.context[
+                ContextKeys.OUTBOUND_EPCIS_MESSAGE_KEY.value
+            ] = data
+
+    @property
+    def declared_parameters(self):
+        return {}
+
+    # def get_output_criteria(self):
+    #     """
+    #     More than anything, this method will confirm that the output criteria
+    #     matching the step parameter configuration actually exists.
+    #     :return: Returns a reference to the EPCISOutputCriteria model instance
+    #     that corresponds to the name value specified in the step parameter.
+    #     """
+    #     self.info('Retrieving the Step\'s EPCIS Output Criteria '
+    #               'parameter value...')
+    #     output_criteria = self.get_parameter(_('EPCIS Output Criteria'),
+    #                                          raise_exception=True)
+    #     self.info(_('EPCIS Output Critieria is set to %s' % output_criteria))
+    #     try:
+    #         return EPCISOutputCriteria.objects.get(
+    #             name=output_criteria
+    #         )
+    #     except EPCISOutputCriteria.DoesNotExist:
+    #         exc = EPCISOutputCriteria.DoesNotExist(
+    #             _('EPCISOutputCriteria with name %s could not be found in the '
+    #               'database.') % output_criteria
+    #         )
+    #         raise exc
+    #
+    # @property
+    # def declared_parameters(self):
+    #     return {
+    #         'EPCIS Output Criteria':'The name value of an EPCIS Output '
+    #                                 'Criteria configuration.'
+    #     }
+
+
+
+    def on_failure(self):
+        pass
+
+

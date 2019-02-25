@@ -14,9 +14,7 @@
 # Copyright 2018 SerialLab Corp.  All rights reserved.
 from django.utils.translation import gettext as _
 from django.core.management.base import BaseCommand, CommandError
-from quartet_capture import models
-from quartet_output.models import EndPoint, EPCISOutputCriteria, \
-    AuthenticationInfo
+from quartet_output.management.commands.utils import create_output_filter_rule
 
 
 class Command(BaseCommand):
@@ -26,98 +24,7 @@ class Command(BaseCommand):
     )
 
     def handle(self, *args, **options):
-        endpoint = EndPoint.objects.create(
-            name=_('Local Echo Server'),
-            urn=_('http://localhost')
-        )
-        auth = AuthenticationInfo.objects.create(
-            username=_('Test User'),
-            password=_('Test Password'),
-            type='Digest',
-            description=_('A test user for the example rule.')
-        )
-        output = EPCISOutputCriteria.objects.create(
-            name=_('Test Transaction Criteria'),
-            action='ADD',
-            event_type='Transaction',
-            biz_location='urn:epc:id:sgln:305555.123456.0',
-            end_point=endpoint,
-            authentication_info=auth
-        )
-        rule = models.Rule.objects.create(
-            name=_('EPCIS Output Filter'),
-            description=_('Will inspect inbound messages for output '
-                          'processing.')
-        )
-        parse_step = models.Step.objects.create(
-            name=_('Inspect EPCIS'),
-            description=_(
-                'Parse and insepect EPCIS events using output criteria.'),
-            step_class='quartet_output.steps.OutputParsingStep',
-            order=1,
-            rule=rule
-        )
-        models.StepParameter.objects.create(
-            name='EPCIS Output Criteria',
-            step=parse_step,
-            value='Test Transaction Criteria',
-            description=_(
-                'This is the name of the EPCIS Output Criteria record to use.')
+        create_output_filter_rule()
+        create_output_filter_rule(rule_name='EPCIS Delayed Output Filter',
+                                  delay_rule=True)
 
-        )
-        models.Step.objects.create(
-            name=_('Add Commissioning Data'),
-            description=_(
-                'Adds commissioning events for filtered EPCs and their children.'),
-            step_class='quartet_output.steps.AddCommissioningDataStep',
-            order=2,
-            rule=rule
-        )
-        models.Step.objects.create(
-            name=_('Add Aggregation Data'),
-            description=_(
-                'Adds aggregation events for included EPCs in any filtered events.'),
-            step_class='quartet_output.steps.UnpackHierarchyStep',
-            order=3,
-            rule=rule
-        )
-        models.Step.objects.create(
-            name=_('Render EPCIS XML'),
-            description=_(
-                'Pulls any EPCPyYes objects from the context and creates an XML message'),
-            step_class='quartet_output.steps.EPCPyYesOutputStep',
-            order=4,
-            rule=rule
-        )
-        output_step = models.Step.objects.create(
-            name=_('Queue Outbound Message'),
-            description=_('Creates a Task for sending any outbound data'),
-            step_class='quartet_output.steps.CreateOutputTaskStep',
-            order=5,
-            rule=rule
-        )
-        models.StepParameter.objects.create(
-            step = output_step,
-            name='Output Rule',
-            value='Transport Rule'
-        )
-        trule = models.Rule.objects.create(
-            name=_('Transport Rule'),
-            description=_('An output Rule for any data filtered by EPCIS Output Criteria '
-                          'rules.')
-        )
-        sdstep = models.Step.objects.create(
-            name=_('Send Data'),
-            description=_('This will send the task message using the source EPCIS Output '
-                          'Critria EndPoint and Authentication Info.'),
-            step_class='quartet_output.steps.TransportStep',
-            order=1,
-            rule=trule
-        )
-        models.StepParameter.objects.create(
-            step=sdstep,
-            name='Output Rule',
-            value='Transport Rule',
-            description=_('The rule that will handle any tasks created by this '
-                        'step.')
-        )

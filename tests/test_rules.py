@@ -8,6 +8,7 @@ test_quartet_output
 Tests for `quartet_output` models module.
 """
 import os
+import time
 import paramiko
 from django.core.exceptions import ValidationError
 from EPCPyYes.core.v1_2.events import EventType
@@ -108,7 +109,44 @@ class TestQuartetOutput(TestCase):
         self._create_comm_step(db_rule)
         self._create_epcpyyes_step(db_rule)
         self._create_task_step(db_rule)
-        db_rule2= self._create_transport_rule()
+        db_rule2 = self._create_transport_rule()
+        self._create_transport_step(db_rule2)
+        db_task = self._create_task(db_rule)
+        curpath = os.path.dirname(__file__)
+        # prepopulate the db
+        self._parse_test_data('data/commission_one_event.xml')
+        self._parse_test_data('data/nested_pack.xml')
+        data_path = os.path.join(curpath, 'data/ship_pallet.xml')
+        with open(data_path, 'r') as data_file:
+            context = execute_rule(data_file.read().encode(), db_task)
+            self.assertEqual(
+                len(context.context[ContextKeys.AGGREGATION_EVENTS_KEY.value]),
+                3,
+                "There should be three filtered events."
+            )
+            for event in context.context[
+                ContextKeys.AGGREGATION_EVENTS_KEY.value]:
+                if event.parent_id in ['urn:epc:id:sgtin:305555.3555555.1',
+                                       'urn:epc:id:sgtin:305555.3555555.2']:
+                    self.assertEqual(len(event.child_epcs), 5)
+                else:
+                    self.assertEqual(len(event.child_epcs), 2)
+            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY]
+            execute_queued_task(task_name=task_name)
+            task = Task.objects.get(name=task_name)
+            self.assertEqual(task.status, 'FINISHED')
+
+    def test_rule_with_agg_comm_output_delay(self):
+        self._create_good_ouput_criterion()
+        db_rule = self._create_rule()
+        self._create_step(db_rule)
+        self._create_output_steps(db_rule)
+        self._create_comm_step(db_rule)
+        self._create_epcpyyes_step(db_rule)
+        self._create_task_step(db_rule)
+        self.create_delay_step(db_rule, order=10)
+        self._create_filtered_output_step(db_rule, order=20)
+        db_rule2 = self._create_transport_rule()
         self._create_transport_step(db_rule2)
         db_task = self._create_task(db_rule)
         curpath = os.path.dirname(__file__)
@@ -169,7 +207,7 @@ class TestQuartetOutput(TestCase):
         self._create_comm_step(db_rule)
         self._create_epcpyyes_step(db_rule)
         self._create_task_step(db_rule)
-        db_rule2= self._create_transport_rule()
+        db_rule2 = self._create_transport_rule()
         self._create_transport_step(db_rule2, put_data=True)
         db_task = self._create_task(db_rule)
         curpath = os.path.dirname(__file__)
@@ -275,6 +313,21 @@ class TestQuartetOutput(TestCase):
             except EPCISOutputCriteria.DoesNotExist:
                 pass
 
+    def test_delay_rule(self):
+        start = time.time()
+        db_rule = self._create_delay_rule()
+        db_task = self._create_task(db_rule)
+        curpath = os.path.dirname(__file__)
+        data_path = os.path.join(curpath, 'data/epcis.xml')
+        with open(data_path, 'r') as data_file:
+            try:
+                execute_rule(data_file.read().encode(), db_task)
+            except EPCISOutputCriteria.DoesNotExist:
+                pass
+        stop = time.time()
+        self.assertGreaterEqual((stop - start), 3, 'The rule did not pause '
+                                                   'long enough.')
+
     def _create_good_ouput_criterion(self):
         endpoint = self._create_endpoint()
         auth = self._create_auth()
@@ -351,12 +404,41 @@ class TestQuartetOutput(TestCase):
         parser.parse()
         parser.clear_cache()
 
+    def _create_delay_rule(self):
+        rule = Rule()
+        rule.name = 'delay-rule'
+        rule.description = 'a simple delay rule'
+        rule.save()
+        self.create_delay_step(rule)
+        return rule
+
+    def create_delay_step(self, rule, order=1):
+        step = Step()
+        step.step_class = 'quartet_output.steps.DelayStep'
+        step.order = order
+        step.name = 'wait 3 seconds'
+        step.rule = rule
+        step.save()
+        param = StepParameter()
+        param.step = step
+        param.name = 'Timeout Interval'
+        param.value = '3'
+        param.save()
+
     def _create_rule(self):
         rule = Rule()
         rule.name = 'output-test'
         rule.description = 'output test rule'
         rule.save()
         return rule
+
+    def _create_filtered_output_step(self, rule, order=1):
+        step = Step()
+        step.step_class = 'quartet_output.steps.EPCPyYesFilteredEventOutputStep'
+        step.order = order
+        step.name = 'filtered output step'
+        step.rule = rule
+        step.save()
 
     def _create_transport_rule(self):
         rule = Rule()
@@ -444,10 +526,10 @@ class TestQuartetOutput(TestCase):
                                      'rule.'
         step_parameter.save()
 
-    def _create_task_step(self, rule):
+    def _create_task_step(self, rule, order=5):
         step = Step()
         step.rule = rule
-        step.order = 5
+        step.order = order
         step.name = 'Create Output Task'
         step.step_class = 'quartet_output.steps.CreateOutputTaskStep'
         step.description = 'Looks for any EPCIS data on the context and ' \
@@ -492,7 +574,6 @@ class TestQuartetOutput(TestCase):
         pass
 
 
-    
 class TestSFTPTransport(TestQuartetOutput):
 
     def _create_endpoint(self):
@@ -538,13 +619,13 @@ class TestSFTPTransport(TestQuartetOutput):
             self.assertEqual(task.status, 'FINISHED')
             try:
                 sftp_client = paramiko.SSHClient()
-                sftp_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                sftp_client.connect('testsftphost', '22', username='foo', password='pass', timeout=60)
+                sftp_client.set_missing_host_key_policy(
+                    paramiko.AutoAddPolicy())
+                sftp_client.connect('testsftphost', '22', username='foo',
+                                    password='pass', timeout=60)
                 sftp = sftp_client.open_sftp()
-                remote_file = sftp.open('/upload/'+task_name+'.xml', 'r')
+                remote_file = sftp.open('/upload/' + task_name + '.xml', 'r')
                 data_back = remote_file.read()
                 self.assertEqual(data_back.decode(), data_out)
             finally:
                 sftp_client.close()
-                
-                
