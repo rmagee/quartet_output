@@ -124,8 +124,7 @@ def create_output_filter_rule(rule_name='EPCIS Output Filter',
             )
             sdstep = create_transport_rule(rule_name='Delayed Transport Rule',
                                            add_delay=delay_rule)
-        else:
-            sdstep = create_transport_rule()
+        sdstep = create_transport_rule()
         return rule
 
 def create_transport_rule(rule_name='Transport Rule', add_delay=False):
