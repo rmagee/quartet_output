@@ -63,6 +63,7 @@ deploy_pypi:
     - echo "[pypi]" >> ~/.pypirc
     - echo "username=$PYPI_USER" >> ~/.pypirc
     - echo "password=$PYPI_PASSWORD" >> ~/.pypirc
+    - cat ~/.pypirc
     - python setup.py check sdist bdist_wheel upload
     - rm ~/.pypirc
   only:

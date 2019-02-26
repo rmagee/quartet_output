@@ -510,10 +510,10 @@ class EPCPyYesOutputStep(rules.Step, FilteredEventStepMixin):
                                          'EventList- otherwise they will be '
                                          'added to the end.'),
             "Only Render Filtered Events": _('If set to True, the step will '
-                                           'only render the filtered events. '
-                                           'If this is true, Append Filtered '
-                                           'Events and Prepend Filtered '
-                                           'Events will be ignored.'),
+                                             'only render the filtered events. '
+                                             'If this is true, Append Filtered '
+                                             'Events and Prepend Filtered '
+                                             'Events will be ignored.'),
             "JSON": _('If set to True then the output message for the EPCPyYEs'
                       'events will be JSON.'),
         }
@@ -746,7 +746,8 @@ class TransportStep(rules.Step, HttpTransportMixin, SftpTransportMixin):
                             'xml',
             'file-extension': 'The file extension to specify when posting and '
                               'putting data via http. Default is xml',
-            'body-raw': 'Whether or not the data should be sent as raw body or file attachment.'
+            'body-raw': 'Whether or not the data should be sent as raw body '
+                        'or file attachment.'
                         'Defaults to True.',
         }
 
@@ -790,6 +791,7 @@ class EPCPyYesFilteredEventOutputStep(rules.Step, FilteredEventStepMixin):
     OUTBOUND_EPCIS_MESSAGE_KEY context key for processing by a
     CreateOutputTaskStep later in the rule for example.
     """
+
     def execute(self, data, rule_context: RuleContext):
         """
         Will pull any filtered events off of the rule context using the
@@ -801,15 +803,16 @@ class EPCPyYesFilteredEventOutputStep(rules.Step, FilteredEventStepMixin):
         filtered_events = self.get_filtered_events()
         self.info('Found %s filtered events.' % len(filtered_events))
         if len(filtered_events) >= 0:
-            epcis_document = template_events.EPCISEventListDocument(filtered_events)
+            epcis_document = template_events.EPCISEventListDocument(
+                filtered_events)
             if self.get_boolean_parameter('JSON', False):
                 data = epcis_document.render_json()
             else:
                 data = epcis_document.render()
             self.info('Warning: this step is overwriting the Outbound '
-                         'EPCIS Message key context key data.  If any data '
-                         'was in this key prior to this step and had not '
-                         'yet been processed, it will have been overwritten.')
+                      'EPCIS Message key context key data.  If any data '
+                      'was in this key prior to this step and had not '
+                      'yet been processed, it will have been overwritten.')
             rule_context.context[
                 ContextKeys.OUTBOUND_EPCIS_MESSAGE_KEY.value
             ] = data
@@ -818,39 +821,5 @@ class EPCPyYesFilteredEventOutputStep(rules.Step, FilteredEventStepMixin):
     def declared_parameters(self):
         return {}
 
-    # def get_output_criteria(self):
-    #     """
-    #     More than anything, this method will confirm that the output criteria
-    #     matching the step parameter configuration actually exists.
-    #     :return: Returns a reference to the EPCISOutputCriteria model instance
-    #     that corresponds to the name value specified in the step parameter.
-    #     """
-    #     self.info('Retrieving the Step\'s EPCIS Output Criteria '
-    #               'parameter value...')
-    #     output_criteria = self.get_parameter(_('EPCIS Output Criteria'),
-    #                                          raise_exception=True)
-    #     self.info(_('EPCIS Output Critieria is set to %s' % output_criteria))
-    #     try:
-    #         return EPCISOutputCriteria.objects.get(
-    #             name=output_criteria
-    #         )
-    #     except EPCISOutputCriteria.DoesNotExist:
-    #         exc = EPCISOutputCriteria.DoesNotExist(
-    #             _('EPCISOutputCriteria with name %s could not be found in the '
-    #               'database.') % output_criteria
-    #         )
-    #         raise exc
-    #
-    # @property
-    # def declared_parameters(self):
-    #     return {
-    #         'EPCIS Output Criteria':'The name value of an EPCIS Output '
-    #                                 'Criteria configuration.'
-    #     }
-
-
-
     def on_failure(self):
         pass
-
-
