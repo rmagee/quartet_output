@@ -101,6 +101,42 @@ class TestQuartetOutput(TestCase):
                     ContextKeys.EPCIS_OUTPUT_CRITERIA_KEY.value)
             )
 
+    def test_rule_with_agg_comm_json_output(self):
+        self._create_good_ouput_criterion()
+        db_rule = self._create_rule()
+        self._create_step(db_rule)
+        self._create_output_steps(db_rule)
+        self._create_comm_step(db_rule)
+        self._create_epcpyyes_step(db_rule, json=True)
+        self._create_task_step(db_rule)
+        db_rule2 = self._create_transport_rule()
+        self._create_transport_step(db_rule2)
+        db_task = self._create_task(db_rule)
+        curpath = os.path.dirname(__file__)
+        # prepopulate the db
+        self._parse_test_data('data/commission_one_event.xml')
+        self._parse_test_data('data/nested_pack.xml')
+        data_path = os.path.join(curpath, 'data/ship_pallet.xml')
+        with open(data_path, 'r') as data_file:
+            context = execute_rule(data_file.read().encode(), db_task)
+            self.assertEqual(
+                len(context.context[ContextKeys.AGGREGATION_EVENTS_KEY.value]),
+                3,
+                "There should be three filtered events."
+            )
+            for event in context.context[
+                ContextKeys.AGGREGATION_EVENTS_KEY.value]:
+                if event.parent_id in ['urn:epc:id:sgtin:305555.3555555.1',
+                                       'urn:epc:id:sgtin:305555.3555555.2']:
+                    self.assertEqual(len(event.child_epcs), 5)
+                else:
+                    self.assertEqual(len(event.child_epcs), 2)
+            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY]
+            execute_queued_task(task_name=task_name)
+            task = Task.objects.get(name=task_name)
+            self.assertEqual(task.status, 'FINISHED')
+
+
     def test_rule_with_agg_comm_output(self):
         self._create_good_ouput_criterion()
         db_rule = self._create_rule()
@@ -499,7 +535,7 @@ class TestQuartetOutput(TestCase):
         step.description = 'unit test commissioning step'
         step.save()
 
-    def _create_epcpyyes_step(self, rule):
+    def _create_epcpyyes_step(self, rule, json=False):
         step = Step()
         step.rule = rule
         step.order = 4
@@ -508,6 +544,12 @@ class TestQuartetOutput(TestCase):
         step.description = 'Creates EPCIS XML or JSON and inserts into rule' \
                            'context.'
         step.save()
+        if json:
+            param = StepParameter.objects.create(
+                step=step,
+                name='JSON',
+                value=True
+            )
 
     def _create_task(self, rule):
         task = Task()
@@ -578,7 +620,7 @@ class TestSFTPTransport(TestQuartetOutput):
 
     def _create_endpoint(self):
         ep = models.EndPoint()
-        ep.urn = 'sftp://testsftphost:22/upload'
+        ep.urn = 'sftp://testsftphost:1001/upload'
         ep.name = 'Test EndPoint SFTP'
         ep.save()
         return ep
@@ -621,7 +663,7 @@ class TestSFTPTransport(TestQuartetOutput):
                 sftp_client = paramiko.SSHClient()
                 sftp_client.set_missing_host_key_policy(
                     paramiko.AutoAddPolicy())
-                sftp_client.connect('testsftphost', '22', username='foo',
+                sftp_client.connect('testsftphost', '1001', username='foo',
                                     password='pass', timeout=60)
                 sftp = sftp_client.open_sftp()
                 remote_file = sftp.open('/upload/' + task_name + '.xml', 'r')

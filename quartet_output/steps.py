@@ -765,13 +765,14 @@ class DelayStep(rules.Step):
                   'The default is 1 second.  The parameter value is '
                   'in seconds with a max of 10.')
         timeout_interval = self.get_parameter(
-            parameter_name='Timeout Interval', default=1
+            parameter_name='Timeout Interval', default=0
         )
         # if it comes from the database it will be a string
         timeout_interval = int(timeout_interval)
         self.info(
             'Sleeping the thread for %s seconds...' % timeout_interval)
-        time.sleep(timeout_interval)
+        if timeout_interval > 0:
+            time.sleep(timeout_interval)
 
     @property
     def declared_parameters(self):
