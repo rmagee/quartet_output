@@ -620,7 +620,7 @@ class TestSFTPTransport(TestQuartetOutput):
 
     def _create_endpoint(self):
         ep = models.EndPoint()
-        ep.urn = 'sftp://testsftphost:1001/upload'
+        ep.urn = 'sftp://testsftphost:22/upload'
         ep.name = 'Test EndPoint SFTP'
         ep.save()
         return ep
@@ -663,7 +663,7 @@ class TestSFTPTransport(TestQuartetOutput):
                 sftp_client = paramiko.SSHClient()
                 sftp_client.set_missing_host_key_policy(
                     paramiko.AutoAddPolicy())
-                sftp_client.connect('testsftphost', '1001', username='foo',
+                sftp_client.connect('testsftphost', '22', username='foo',
                                     password='pass', timeout=60)
                 sftp = sftp_client.open_sftp()
                 remote_file = sftp.open('/upload/' + task_name + '.xml', 'r')
