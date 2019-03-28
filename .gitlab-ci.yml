@@ -8,7 +8,7 @@ services:
     alias: testhost
   - name: atmoz/sftp
     alias: testsftphost
-    command: ["foo:pass:1001::upload"]
+    command: ["foo:pass:1001:1001:upload"]
 
 python3_5_unit_test:
   image: seriallab/python3.5dev
