@@ -20,3 +20,5 @@ Contents:
    contributing
    authors
    history
+   steps
+   parsing

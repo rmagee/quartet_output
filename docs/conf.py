@@ -22,6 +22,14 @@ cwd = os.getcwd()
 parent = os.path.dirname(cwd)
 sys.path.append(parent)
 
+sys.path.insert(0, os.path.join(os.path.abspath('.'), '../../quartet_output'))
+
+os.environ['DJANGO_SETTINGS_MODULE'] = 'tests.settings'
+
+import django
+django.setup()
+
+
 import quartet_output
 import sphinx_rtd_theme
 
