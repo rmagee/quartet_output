@@ -31,3 +31,10 @@ Patches
   output task by specifying a "Forward Data" parameter.
 * Fixed error with top level EPCs not being pulled within the
   AddCommissioningDataStep.
+
+2.0+
+++++
+*Added a helper function to the output step to allow implementers to
+override the step to provide a different EPCPyYes document type and
+or to override the default template provided by the EPCPyYes document
+within the EPCPyYes output step.
