@@ -487,7 +487,7 @@ class EPCPyYesOutputStep(rules.Step, FilteredEventStepMixin):
             else:
                 all_events = oevents + aggevents
         if len(all_events) > 0:
-            epcis_document = template_events.EPCISEventListDocument(all_events)
+            epcis_document = self.get_epcis_document_class(all_events)
             if self.get_boolean_parameter('JSON', False):
                 data = epcis_document.render_json()
             else:
@@ -495,6 +495,18 @@ class EPCPyYesOutputStep(rules.Step, FilteredEventStepMixin):
             rule_context.context[
                 ContextKeys.OUTBOUND_EPCIS_MESSAGE_KEY.value
             ] = data
+
+    def get_epcis_document_class(self, all_events) -> template_events.EPCISEventListDocument:
+        """
+        Override this to provide the step with an alternate class or to
+        override the default template provided.
+        :param all_events: The EPCPyYes template events to populate
+        the document with.
+        :return: By default returns a `template_events.EPCISEventListDocument`
+        instance.
+        """
+        epcis_document = template_events.EPCISEventListDocument(all_events)
+        return epcis_document
 
     def declared_parameters(self):
         return {

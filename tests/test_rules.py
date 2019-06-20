@@ -101,6 +101,19 @@ class TestQuartetOutput(TestCase):
                     ContextKeys.EPCIS_OUTPUT_CRITERIA_KEY.value)
             )
 
+    def test_rule_with_agg_trigger(self):
+        self._create_good_agg_trigger_ouput_criterion()
+        db_rule = self._create_rule()
+        self._create_step(db_rule)
+        self._create_output_steps(db_rule)
+        self._create_comm_step(db_rule)
+        self._create_epcpyyes_step(db_rule)
+        db_task = self._create_task(db_rule)
+        curpath = os.path.dirname(__file__)
+        self._parse_test_data('data/commissioning.xml')
+        self._parse_test_data('data/aggregation.xml')
+
+
     def test_rule_with_agg_comm_json_output(self):
         self._create_good_ouput_criterion()
         db_rule = self._create_rule()
@@ -380,6 +393,19 @@ class TestQuartetOutput(TestCase):
         eoc.destination_type = 'urn:epcglobal:cbv:sdt:location'
         eoc.destination_id = 'urn:epc:id:sgln:309999.111111.233'
         eoc.authentication_info = auth
+        eoc.end_point = endpoint
+        eoc.save()
+        return eoc
+
+    def _create_good_agg_trigger_ouput_criterion(self):
+        endpoint = self._create_endpoint()
+        auth = self._create_auth()
+        eoc = EPCISOutputCriteria()
+        eoc.name = "Test Criteria"
+        eoc.action = "ADD"
+        eoc.biz_step = BusinessSteps.packing.value
+        eoc.biz_location = 'urn:epc:id:sgln:0555555.00002.0'
+        eoc.sender_identifier = 'urn:epc:id:sgln:0555555.00001.0'
         eoc.end_point = endpoint
         eoc.save()
         return eoc
