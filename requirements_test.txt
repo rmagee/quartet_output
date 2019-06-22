@@ -17,4 +17,5 @@ sphinx
 sphinx_rtd_theme
 pygments
 paramiko
+psycopg2
 
