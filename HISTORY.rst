@@ -34,7 +34,12 @@ Patches
 
 2.0+
 ++++
-*Added a helper function to the output step to allow implementers to
-override the step to provide a different EPCPyYes document type and
-or to override the default template provided by the EPCPyYes document
-within the EPCPyYes output step.
+* Added a helper function to the output step to allow implementers to
+  override the step to provide a different EPCPyYes document type and
+  or to override the default template provided by the EPCPyYes document
+  within the EPCPyYes output step.
+
+2.1+
+++++
+* Added a new step that will take all EPCs in a given message and look
+  up the commissioning events for those EPCs.

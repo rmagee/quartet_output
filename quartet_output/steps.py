@@ -12,28 +12,31 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Copyright 2018 SerialLab Corp.  All rights reserved.
+from copy import copy
+from enum import Enum
+from urllib.parse import urlparse
+
 import io
 import requests
 import time
-from threading import Thread
-from copy import copy
-from urllib.parse import urlparse
-from enum import Enum
-from django.utils.translation import gettext as _
 from django.core.files.base import File
+from django.utils.translation import gettext as _
+
 from EPCPyYes.core.v1_2 import events
+from EPCPyYes.core.v1_2.events import Action
 from EPCPyYes.core.v1_2 import template_events
-from quartet_capture.rules import RuleContext
-from quartet_output import errors
-from quartet_output.transport.http import HttpTransportMixin
-from quartet_output.transport.sftp import SftpTransportMixin
-from quartet_output.models import EPCISOutputCriteria, EndPoint
-from quartet_output.parsing import SimpleOutputParser, BusinessOutputParser
+from EPCPyYes.core.v1_2.CBV import BusinessSteps, Disposition
 from quartet_capture import models, rules, errors as capture_errors
+from quartet_capture.rules import RuleContext
 from quartet_capture.tasks import create_and_queue_task
-from quartet_epcis.parsing.steps import EPCISParsingStep
 from quartet_epcis.db_api.queries import EPCISDBProxy, EntryList
 from quartet_epcis.models.choices import EventTypeChoicesEnum
+from quartet_epcis.parsing.steps import EPCISParsingStep
+from quartet_output import errors
+from quartet_output.models import EPCISOutputCriteria, EndPoint
+from quartet_output.parsing import SimpleOutputParser, BusinessOutputParser
+from quartet_output.transport.http import HttpTransportMixin
+from quartet_output.transport.sftp import SftpTransportMixin
 
 
 class ContextKeys(Enum):
@@ -330,8 +333,13 @@ class AddCommissioningDataStep(rules.Step, FilteredEventStepMixin):
         self.rule_context = rule_context
         self.info('%s filtered events have been found. Processing',
                   len(epcis_events))
+        all_events = set({})
         for epcis_event in epcis_events:
-            self.process_event(epcis_event, rule_context)
+            all_events = all_events.union(
+                self.process_event(epcis_event, rule_context))
+
+        rule_context.context[ContextKeys.OBJECT_EVENTS_KEY.value] = list(
+            all_events)
         self.info('Processing complete.')
 
     def process_event(self, epcis_event: events.EPCISBusinessEvent,
@@ -379,7 +387,7 @@ class AddCommissioningDataStep(rules.Step, FilteredEventStepMixin):
         all_events = self.process_events(all_events)
         self.info('Adding %s Object events to the rule context.',
                   len(all_events))
-        rule_context.context[ContextKeys.OBJECT_EVENTS_KEY.value] = all_events
+        return set(all_events)
 
     def handle_parent_entries(self, parent_entries: EntryList):
         '''
@@ -442,7 +450,7 @@ class AddEventsByMessageStep(rules.Step, FilteredEventStepMixin):
         Processes any filtered events.
         :param epcis_event: A filtered event.
         :param rule_context: The rule context for this step.
-        :return: None
+        :return: None[
         """
         EPCISDBProxy().get_full_message(
 
@@ -496,7 +504,8 @@ class EPCPyYesOutputStep(rules.Step, FilteredEventStepMixin):
                 ContextKeys.OUTBOUND_EPCIS_MESSAGE_KEY.value
             ] = data
 
-    def get_epcis_document_class(self, all_events) -> template_events.EPCISEventListDocument:
+    def get_epcis_document_class(self,
+                                 all_events) -> template_events.EPCISEventListDocument:
         """
         Override this to provide the step with an alternate class or to
         override the default template provided.
@@ -639,6 +648,20 @@ class TransportStep(rules.Step, HttpTransportMixin, SftpTransportMixin):
     Uses the transport information within the `EPCISOutputCriteria` placed
     on the context under the EPCIS_OUTPUT_CRITERIA_KEY to send any data that
     was placed on the context under the OUTBOUND_EPCIS_MESSAGE_KEY.
+
+    A transport rule is typically configured with one transport step and
+    the name of that rule would be specified in a different rule as a
+    step parameter to the CreateOutputTaskStep above for example.
+
+    Step Parameters:
+        'content-type': 'The content-type to add to the header during any '
+                        'http posts, puts, etc. Default is application/'
+                        'xml.'
+        'file-extension': 'The file extension to specify when posting and '
+                          'putting data via http. Default is xml.'
+        'body-raw': 'Whether or not the data should be sent as raw body '
+                    'or file attachment.'
+                    'Defaults to True.'
     '''
 
     def execute(self, data, rule_context: RuleContext):
@@ -835,4 +858,64 @@ class EPCPyYesFilteredEventOutputStep(rules.Step, FilteredEventStepMixin):
         return {}
 
     def on_failure(self):
+        pass
+
+
+class AppendCommissioningStep(rules.Step, FilteredEventStepMixin):
+    """
+    Will take all of the unique epcs found in the filtered events
+    and create an EPCPyYes commissioning event for those epcs and append it to
+    the RuleContext's OBJECT_EVENTS list.  This is different than the
+    `AddCommissioningStep above which will look up all of the commissioning
+    events of the epcis in the message along with the children of the epcs
+    within the message.  This step does not do any recurssive child lookups
+    so it is much more efficient to use if you are intending to just lookup
+    the commissioning events for the EPCs in a given message.
+    """
+
+    def execute(self, data, rule_context: RuleContext):
+        epcs = set({})
+        for filtered_event in rule_context.context.get(
+            ContextKeys.FILTERED_EVENTS_KEY.value,
+            []):
+            if isinstance(filtered_event, template_events.AggregationEvent):
+                epcs = epcs.union(filtered_event.child_epcs)
+                epcs.add(filtered_event.parent_id)
+            elif isinstance(filtered_event, template_events.ObjectEvent):
+                epcs = epcs.union(filtered_event.epc_list)
+            elif isinstance(filtered_event, template_events.TransactionEvent):
+                epcs = epcs.union(filtered_event.epc_list)
+                epcs.add(filtered_event.parent_id)
+            elif isinstance(filtered_event, template_events.TransformationEvent):
+                raise self.TransformationEventNotSupported(
+                    'Auto commissioning for transformation events is not '
+                    'supported.'
+                )
+            else:
+                raise self.EventNotSupported(
+                    'An event was passed in that was not supported. '
+                    'Only EPCPyYes template events can be processed '
+                    'by this step.'
+                )
+
+        obj_events = self.get_object_events(list(epcs))
+        rule_context.context[
+            ContextKeys.OBJECT_EVENTS_KEY.value
+        ] = obj_events
+
+    def get_object_events(self, epcs):
+        db_proxy = EPCISDBProxy()
+        obj_events = db_proxy.get_object_events_by_epcs(epcs)
+        return obj_events
+
+    def declared_parameters(self):
+        pass
+
+    def on_failure(self):
+        pass
+
+    class TransformationEventNotSupported(Exception):
+        pass
+
+    class EventNotSupported(Exception):
         pass
