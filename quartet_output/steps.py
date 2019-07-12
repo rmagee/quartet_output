@@ -39,6 +39,7 @@ from quartet_output.transport.http import HttpTransportMixin
 from quartet_output.transport.sftp import SftpTransportMixin
 from quartet_output.transport.mail import MailMixin
 
+
 class ContextKeys(Enum):
     """
     Containes Rule Context keys that the steps in this module utilize.
@@ -896,7 +897,8 @@ class AppendCommissioningStep(rules.Step, FilteredEventStepMixin):
             elif isinstance(filtered_event, template_events.TransactionEvent):
                 epcs = epcs.union(filtered_event.epc_list)
                 epcs.add(filtered_event.parent_id)
-            elif isinstance(filtered_event, template_events.TransformationEvent):
+            elif isinstance(filtered_event,
+                            template_events.TransformationEvent):
                 raise self.TransformationEventNotSupported(
                     'Auto commissioning for transformation events is not '
                     'supported.'
@@ -915,7 +917,10 @@ class AppendCommissioningStep(rules.Step, FilteredEventStepMixin):
 
     def get_object_events(self, epcs):
         db_proxy = EPCISDBProxy()
-        obj_events = db_proxy.get_object_events_by_epcs(epcs)
+        obj_events = db_proxy.get_object_events_by_epcs(
+            epcs,
+            select_for_update=False
+        )
         return obj_events
 
     def declared_parameters(self):
