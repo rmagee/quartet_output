@@ -43,3 +43,8 @@ Patches
 ++++
 * Added a new step that will take all EPCs in a given message and look
   up the commissioning events for those EPCs.
+
+2.2+
+++++
+* Added email steps for output along with an email mixin that understands and
+  can parse `mailto` URLs.  New unit tests and documentation to support.
