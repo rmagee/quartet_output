@@ -1,5 +1,5 @@
 =============================
-quartet_output
+QU4RTET OUTPUT
 =============================
 
 .. image:: https://gitlab.com/serial-lab/quartet_output/badges/master/coverage.svg

@@ -37,7 +37,7 @@ from quartet_output.models import EPCISOutputCriteria, EndPoint
 from quartet_output.parsing import SimpleOutputParser, BusinessOutputParser
 from quartet_output.transport.http import HttpTransportMixin
 from quartet_output.transport.sftp import SftpTransportMixin
-
+from quartet_output.transport.mail import MailMixin
 
 class ContextKeys(Enum):
     """
@@ -643,7 +643,8 @@ class CreateOutputTaskStep(rules.Step):
         pass
 
 
-class TransportStep(rules.Step, HttpTransportMixin, SftpTransportMixin):
+class TransportStep(rules.Step, HttpTransportMixin, SftpTransportMixin,
+                    MailMixin):
     '''
     Uses the transport information within the `EPCISOutputCriteria` placed
     on the context under the EPCIS_OUTPUT_CRITERIA_KEY to send any data that
@@ -749,6 +750,15 @@ class TransportStep(rules.Step, HttpTransportMixin, SftpTransportMixin):
                           output_criteria,
                           content_type,
                           file_extension)
+        elif protocol.lower() == 'mailto':
+            self.send_email(
+                data,
+                rule_context,
+                output_criteria,
+                self.info,
+                file_extension=self.get_parameter('file-extension', 'txt'),
+                mimetype=self.get_parameter('content-type', 'text/plain')
+            )
 
     def _supports_protocol(self, endpoint: EndPoint):
         '''
@@ -762,7 +772,7 @@ class TransportStep(rules.Step, HttpTransportMixin, SftpTransportMixin):
         parse_result = urlparse(
             endpoint.urn
         )
-        if parse_result.scheme.lower() in ['http', 'https', 'sftp']:
+        if parse_result.scheme.lower() in ['http', 'https', 'sftp', 'mailto']:
             return parse_result.scheme
         else:
             raise errors.ProtocolNotSupportedError(_(

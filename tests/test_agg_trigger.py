@@ -6,7 +6,7 @@ from EPCPyYes.core.v1_2.CBV.business_steps import BusinessSteps
 from EPCPyYes.core.v1_2.CBV.dispositions import Disposition
 from EPCPyYes.core.v1_2.events import EventType
 from quartet_capture.models import Rule, Step, StepParameter, Task
-from quartet_capture.tasks import execute_rule, execute_queued_task
+from quartet_capture.tasks import execute_rule
 from quartet_epcis.parsing.business_parser import BusinessEPCISParser
 from quartet_output import models
 from quartet_output.models import EPCISOutputCriteria
@@ -16,23 +16,13 @@ from quartet_output.steps import ContextKeys
 class TestOutputParsing(TestCase):
     def _create_endpoint(self):
         ep = models.EndPoint()
-        ep.urn = 'http://testhost'
+        ep.urn = 'mailto:crashtestdummie@unittest.local?body=send%20current-issue&subject=awesome email'
         ep.name = 'Test EndPoint'
         ep.save()
         return ep
 
-    def _create_auth(self):
-        auth = models.AuthenticationInfo()
-        auth.description = 'Unit test auth.'
-        auth.username = 'UnitTestUser'
-        auth.password = 'UnitTestPassword'
-        auth.save()
-        return auth
-
-
     def _create_good_ouput_criterion(self):
         endpoint = self._create_endpoint()
-        auth = self._create_auth()
         eoc = EPCISOutputCriteria()
         eoc.name = "Test Criteria"
         eoc.action = "ADD"
@@ -40,7 +30,6 @@ class TestOutputParsing(TestCase):
         eoc.disposition = Disposition.in_progress.value
         eoc.biz_step = BusinessSteps.packing.value
         eoc.read_point = 'urn:epc:id:sgln:0555555.00002.0'
-        eoc.authentication_info = auth
         eoc.end_point = endpoint
         eoc.save()
         return eoc
@@ -191,7 +180,6 @@ class TestOutputParsing(TestCase):
                 "There should be twelve filtered events."
             )
             task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY]
-            execute_queued_task(task_name=task_name)
             task = Task.objects.get(name=task_name)
             self.assertEqual(task.status, 'FINISHED')
             print(context.context[ContextKeys.OUTBOUND_EPCIS_MESSAGE_KEY.value])

@@ -7,9 +7,11 @@ test_quartet_output
 
 Tests for `quartet_output` models module.
 """
+from urllib.parse import urlparse, urlsplit, parse_qsl
 import os
 import time
 import paramiko
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from EPCPyYes.core.v1_2.events import EventType
 from EPCPyYes.core.v1_2.CBV.dispositions import Disposition
@@ -20,6 +22,8 @@ from quartet_capture.models import Rule, Step, StepParameter, Task
 from quartet_capture.tasks import execute_rule, execute_queued_task
 from quartet_output.steps import SimpleOutputParser, ContextKeys
 from quartet_output.models import EPCISOutputCriteria
+from quartet_output.transport.mail import MailMixin
+from django.test.utils import override_settings
 from django.test import TestCase
 
 from quartet_output import models
@@ -113,7 +117,6 @@ class TestQuartetOutput(TestCase):
         self._parse_test_data('data/commissioning.xml')
         self._parse_test_data('data/aggregation.xml')
 
-
     def test_rule_with_agg_comm_json_output(self):
         self._create_good_ouput_criterion()
         db_rule = self._create_rule()
@@ -148,7 +151,6 @@ class TestQuartetOutput(TestCase):
             execute_queued_task(task_name=task_name)
             task = Task.objects.get(name=task_name)
             self.assertEqual(task.status, 'FINISHED')
-
 
     def test_rule_with_agg_comm_output(self):
         self._create_good_ouput_criterion()
@@ -697,3 +699,15 @@ class TestSFTPTransport(TestQuartetOutput):
                 self.assertEqual(data_back.decode(), data_out)
             finally:
                 sftp_client.close()
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend')
+class TestMail(TestCase):
+    def test_mailto(self):
+        urn = 'mailto:hither@this.local?body=send%20current-issue&subject=awesome email'
+        mail_info = urlparse(urn)
+        mixin = MailMixin()
+        print(settings.EMAIL_BACKEND)
+        message = mixin.convert_mailto_url(urn)
+        message.attach('test.txt', '<test>asdf</test>', 'text/plain')
+        message.send(fail_silently=False)
+        print(mail_info)

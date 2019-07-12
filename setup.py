@@ -46,7 +46,7 @@ setup(
     version=version,
     description="""Output logic for QU4RTET supply chain messaging.""",
     long_description=readme,
-    author='SerialLab Corp',
+    author='Rob Magee',
     author_email='slab@serial-lab.com',
     url='https://gitlab.com/serial-lab/quartet_output',
     packages=find_packages(),

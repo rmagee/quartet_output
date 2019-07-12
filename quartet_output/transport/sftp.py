@@ -12,14 +12,15 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Copyright 2018 SerialLab Corp.  All rights reserved.
-import paramiko
-from urllib.parse import urlparse
 from os.path import join
-from quartet_capture import models
+from urllib.parse import urlparse
+
+import paramiko
 from io import StringIO, BytesIO
+
 from logging import getLogger
-from quartet_output.models import EndPoint, EPCISOutputCriteria
-from quartet_capture.rules import Step, RuleContext
+from quartet_capture.rules import RuleContext
+from quartet_output.models import EPCISOutputCriteria
 
 logger = getLogger(__name__)
 

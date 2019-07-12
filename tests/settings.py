@@ -73,6 +73,7 @@ REST_FRAMEWORK = {
 #     },
 # }
 
+
 try:
     from tests.local_settings import *
 except ImportError:
