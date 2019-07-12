@@ -7,26 +7,26 @@ test_quartet_output
 
 Tests for `quartet_output` models module.
 """
-from urllib.parse import urlparse, urlsplit, parse_qsl
 import os
-import time
+from urllib.parse import urlparse
+
 import paramiko
+import time
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from EPCPyYes.core.v1_2.events import EventType
-from EPCPyYes.core.v1_2.CBV.dispositions import Disposition
-from EPCPyYes.core.v1_2.CBV.business_steps import BusinessSteps
-from EPCPyYes.core.SBDH.sbdh import StandardBusinessDocumentHeader as sbdheader
-from quartet_epcis.parsing.business_parser import BusinessEPCISParser
-from quartet_capture.models import Rule, Step, StepParameter, Task
-from quartet_capture.tasks import execute_rule, execute_queued_task
-from quartet_output.steps import SimpleOutputParser, ContextKeys
-from quartet_output.models import EPCISOutputCriteria
-from quartet_output.transport.mail import MailMixin
-from django.test.utils import override_settings
 from django.test import TestCase
 
+from EPCPyYes.core.SBDH.sbdh import StandardBusinessDocumentHeader as sbdheader
+from EPCPyYes.core.v1_2.CBV.business_steps import BusinessSteps
+from EPCPyYes.core.v1_2.CBV.dispositions import Disposition
+from EPCPyYes.core.v1_2.events import EventType
+from quartet_capture.models import Rule, Step, StepParameter, Task
+from quartet_capture.tasks import execute_rule, execute_queued_task
+from quartet_epcis.parsing.business_parser import BusinessEPCISParser
 from quartet_output import models
+from quartet_output.models import EPCISOutputCriteria
+from quartet_output.steps import SimpleOutputParser, ContextKeys
+from quartet_output.transport.mail import MailMixin
 
 
 class TestQuartetOutput(TestCase):
@@ -700,7 +700,6 @@ class TestSFTPTransport(TestQuartetOutput):
             finally:
                 sftp_client.close()
 
-@override_settings(EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend')
 class TestMail(TestCase):
     def test_mailto(self):
         urn = 'mailto:hither@this.local?body=send%20current-issue&subject=awesome email'
