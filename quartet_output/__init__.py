@@ -13,4 +13,4 @@
 #
 # Copyright 2018 SerialLab Corp.  All rights reserved.
 # -*- coding: utf-8
-__version__ = '2.1.1'
+__version__ = '2.2.0'
