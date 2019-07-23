@@ -19,13 +19,12 @@ from urllib.parse import urlparse
 import io
 import requests
 import time
+from jinja2 import Environment
 from django.core.files.base import File
 from django.utils.translation import gettext as _
 
 from EPCPyYes.core.v1_2 import events
-from EPCPyYes.core.v1_2.events import Action
 from EPCPyYes.core.v1_2 import template_events
-from EPCPyYes.core.v1_2.CBV import BusinessSteps, Disposition
 from quartet_capture import models, rules, errors as capture_errors
 from quartet_capture.rules import RuleContext
 from quartet_capture.tasks import create_and_queue_task
@@ -36,9 +35,9 @@ from quartet_output import errors
 from quartet_output.models import EPCISOutputCriteria, EndPoint
 from quartet_output.parsing import SimpleOutputParser, BusinessOutputParser
 from quartet_output.transport.http import HttpTransportMixin
-from quartet_output.transport.sftp import SftpTransportMixin
 from quartet_output.transport.mail import MailMixin
-
+from quartet_output.transport.sftp import SftpTransportMixin
+from quartet_templates.models import Template
 
 class ContextKeys(Enum):
     """
@@ -90,6 +89,38 @@ class ContextKeys(Enum):
     OBJECT_EVENTS_KEY = 'OBJECT_EVENTS'
     OUTBOUND_EPCIS_MESSAGE_KEY = 'OUTBOUND_EPCIS_MESSAGE'
     CREATED_TASK_NAME_KEY = 'CREATED_TASK_NAME'
+
+class DynamicTemplateMixin:
+    """
+    In certain circumstances you may need to override the default templates
+    used by EPCPyYes during output to handle oddities in other systems
+    implementation of the EPCIS protocol.  Use this mixin in any steps
+    to provide either a path to a new template and/or the name of a
+    QU4RTET Template to use.  QU4RTET templates can be configured via
+    the `quartet_template` module's functionality.
+    """
+    def get_template(self, env: Environment, default: str):
+        """
+        Allows implementing steps to load a template from a Template parameter.
+        The template parameter would be the name of a given quartet_templates.model.Template
+        instance.
+        :param env: The jinja template Environment object.
+        :param default: The default path to use if there was not a defined
+            quartet_templates.models.Template instance specified in the
+            step's `Template` step parameter.  This would be the django
+            path to a valid template in any python package on the python
+            path.
+        :return: If no template parameter was specified, will return the
+            template from the default path specified.  If neither could
+            be found an exception will be thrown.
+        """
+        template_name = self.get_parameter('Template', None)
+        if template_name:
+            template_model = Template.objects.get(name=template_name)
+            template = env.from_string(template_model.content)
+        else:
+            template = env.get_template(default)
+        return template
 
 
 class OutputParsingStep(EPCISParsingStep):

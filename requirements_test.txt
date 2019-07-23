@@ -18,4 +18,5 @@ sphinx_rtd_theme
 pygments
 paramiko
 psycopg2
-
+quartet_templates
+jinja2

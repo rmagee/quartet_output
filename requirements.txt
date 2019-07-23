@@ -2,3 +2,5 @@ requests>=2.18.4
 djangorestframework>=3.8.2
 # Additional requirements go here
 paramiko
+quartet_templates
+jinja2
