@@ -12,12 +12,16 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Copyright 2018 SerialLab Corp.  All rights reserved.
+import json
+
 from EPCPyYes.core.SBDH import sbdh, template_sbdh
 from EPCPyYes.core.v1_2 import events as yes_events
+from EPCPyYes.core.v1_2 import json_decoders
+from quartet_epcis.models import headers
+from quartet_epcis.parsing.business_parser import BusinessEPCISParser
+from quartet_epcis.parsing.parser import QuartetParser
 from quartet_output.evaluation import EventEvaluation, HeaderEvaluation
 from quartet_output.models import EPCISOutputCriteria
-from quartet_epcis.parsing.parser import QuartetParser
-from quartet_epcis.parsing.business_parser import BusinessEPCISParser
 
 
 class SimpleOutputParser(QuartetParser):
@@ -201,3 +205,40 @@ class BusinessOutputParser(BusinessEPCISParser):
             self.epcis_output_criteria
         ):
             self.filtered_events.append(epcis_event)
+
+
+class JSONParser(BusinessOutputParser):
+
+    def parse(self):
+        self._message = headers.Message()
+        self._message.save()
+        if self.stream.startswith('/'):
+            with open(self.stream, 'r') as f:
+                self.stream = f.read()
+        jsonobj = json.loads(self.stream)
+        events = jsonobj.get('events', [])
+        if len(events) == 0:
+            raise self.NoEventsError('There were no events in the inbound'
+                                     ' JSON file.')
+        for event in events:
+            if 'objectEvent' in event:
+                decoder = json_decoders.ObjectEventDecoder(event)
+                self.handle_object_event(decoder.get_event())
+            elif 'aggregationEvent' in event:
+                decoder = json_decoders.AggregationEventDecoder(event)
+                self.handle_aggregation_event(decoder.get_event())
+            elif 'transactionEvent' in event:
+                decoder = json_decoders.TransactionEventDecoder(event)
+                self.handle_transaction_event(decoder.get_event())
+            else:
+                raise self.InvalidEventError('The JSON parser encountered an'
+                                             ' event that could not be parsed'
+                                             ' %s' % str(event))
+        self.clear_cache()
+        return self._message.id
+
+    class NoEventsError(Exception):
+        pass
+
+    class InvalidEventError(Exception):
+        pass
