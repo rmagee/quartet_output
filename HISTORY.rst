@@ -48,3 +48,11 @@ Patches
 ++++
 * Added email steps for output along with an email mixin that understands and
   can parse `mailto` URLs.  New unit tests and documentation to support.
+
+2.3
++++
+* Added new dynamic template mixin in the steps module to support implementers
+  implementing classes that need to override the default templates for
+  EPCPyYes during output.  This allows for customized EPCIS output generation
+  using custom Jinja2 templates defined on the python path and/or configured
+  in the quartet_templates package.
