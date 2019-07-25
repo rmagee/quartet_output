@@ -163,6 +163,7 @@ class EPCISOutputCriteria(models.Model):
     class Meta:
         verbose_name = _('EPCIS Output Criteria')
         verbose_name_plural = _('EPCIS Output Criteria')
+        ordering = ['name']
 
 
 class EndPoint(models.Model):
@@ -190,6 +191,7 @@ class EndPoint(models.Model):
     class Meta:
         verbose_name = _('End Point')
         verbose_name_plural = _('End Points')
+        ordering = ['name']
 
 
 class AuthenticationInfo(models.Model):
@@ -241,3 +243,4 @@ class AuthenticationInfo(models.Model):
     class Meta:
         verbose_name = _('Authentication Info')
         verbose_name_plural = _('Authentication Info')
+        ordering = ['username']
