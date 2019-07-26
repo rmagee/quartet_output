@@ -17,6 +17,7 @@ from enum import Enum
 from urllib.parse import urlparse
 
 import io
+import re
 import requests
 import time
 from jinja2 import Environment
@@ -121,6 +122,32 @@ class DynamicTemplateMixin:
         else:
             template = env.get_template(default)
         return template
+
+
+class FilterEPCsMixin:
+    """
+    Use this mixin to filter or transform EPCs in certain events by supplying a
+    regular expression.  The most common scenario is to remove EPCs from
+    a given event to reduce redundancy in certain business scenarios.
+    """
+    def filter(self, epcs: list, search_value: str, reverse=False) -> list:
+        """
+        Uses a search value to filter out EPCs in a list.  To filter out
+        EPCs, provide a list and a regular expression and any epcs that match
+        will be removed from the list.  To only include EPCs that match your
+        regular expression, set the reverse parameter to True.
+        :param epcs: The list of EPCs to filter.
+        :param search_value: The search value to match with.
+        :param reverse: If this is set to True, the function will only return
+        items that match the search value as opposed to removing items
+        that match.
+        :return: Returns a new list of EPCs with the filter logic applied.
+        """
+        if not reverse:
+            result = [epc for epc in epcs if search_value not in epc]
+        else:
+            result = [epc for epc in epcs if search_value in epc]
+        return result
 
 
 class OutputParsingStep(EPCISParsingStep):
@@ -903,7 +930,8 @@ class EPCPyYesFilteredEventOutputStep(rules.Step, FilteredEventStepMixin):
         pass
 
 
-class AppendCommissioningStep(rules.Step, FilteredEventStepMixin):
+class AppendCommissioningStep(rules.Step, FilteredEventStepMixin,
+                              FilterEPCsMixin):
     """
     Will take all of the unique epcs found in the filtered events
     and create an EPCPyYes commissioning event for those epcs and append it to
