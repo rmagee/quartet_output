@@ -40,6 +40,7 @@ from quartet_output.transport.mail import MailMixin
 from quartet_output.transport.sftp import SftpTransportMixin
 from quartet_templates.models import Template
 
+
 class ContextKeys(Enum):
     """
     Containes Rule Context keys that the steps in this module utilize.
@@ -91,6 +92,7 @@ class ContextKeys(Enum):
     OUTBOUND_EPCIS_MESSAGE_KEY = 'OUTBOUND_EPCIS_MESSAGE'
     CREATED_TASK_NAME_KEY = 'CREATED_TASK_NAME'
 
+
 class DynamicTemplateMixin:
     """
     In certain circumstances you may need to override the default templates
@@ -100,6 +102,7 @@ class DynamicTemplateMixin:
     QU4RTET Template to use.  QU4RTET templates can be configured via
     the `quartet_template` module's functionality.
     """
+
     def get_template(self, env: Environment, default: str):
         """
         Allows implementing steps to load a template from a Template parameter.
@@ -130,6 +133,7 @@ class FilterEPCsMixin:
     regular expression.  The most common scenario is to remove EPCs from
     a given event to reduce redundancy in certain business scenarios.
     """
+
     def filter(self, epcs: list, search_value: str, reverse=False) -> list:
         """
         Uses a search value to filter out EPCs in a list.  To filter out
@@ -221,8 +225,14 @@ class OutputParsingStep(EPCISParsingStep):
         except TypeError:
             parser = SimpleOutputParser(io.BytesIO(data.encode()),
                                         self.epc_output_criteria)
+        self.get_or_create_parameter(
+            'Skip Parsing',
+            'False',
+            'Whether or not to skip the parsing phase and just filter events.')
+        skip_parsing = self.get_boolean_parameter('Skip Parsing', False)
         self.info(_('Parsing the document...'))
-        parser.parse()
+        if not skip_parsing:
+            parser.parse()
         self.info(_('Parsing complete.  %s matching events were found.') %
                   str(len(parser.filtered_events)))
         rule_context.context[
