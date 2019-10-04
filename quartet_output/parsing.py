@@ -40,12 +40,14 @@ class SimpleOutputParser(QuartetParser):
         stream,
         epcis_output_criteria: EPCISOutputCriteria,
         event_cache_size: int = 1024,
-        recursive_decommission: bool = True
+        recursive_decommission: bool = True,
+        skip_parsing = False
     ):
         super().__init__(stream, event_cache_size, recursive_decommission)
         self.epcis_output_criteria = epcis_output_criteria
         self.event_evaluation = EventEvaluation()
         self.filtered_events = []
+        self.skip_parsing = False
 
     def handle_aggregation_event(
         self,
@@ -57,7 +59,8 @@ class SimpleOutputParser(QuartetParser):
         :param epcis_event: The event to insert and inspect.
         :return: None
         """
-        super().handle_aggregation_event(epcis_event)
+        if not self.skip_parsing:
+            super().handle_aggregation_event(epcis_event)
         self.evaluate(epcis_event)
 
     def handle_transaction_event(
@@ -70,7 +73,8 @@ class SimpleOutputParser(QuartetParser):
         :param epcis_event: The event to insert and inspect.
         :return: None
         """
-        super().handle_transaction_event(epcis_event)
+        if not self.skip_parsing:
+            super().handle_transaction_event(epcis_event)
         self.evaluate(epcis_event)
 
     def handle_object_event(self, epcis_event: yes_events.ObjectEvent):
@@ -80,7 +84,8 @@ class SimpleOutputParser(QuartetParser):
         :param epcis_event: The event to insert and inspect.
         :return: None
         """
-        super().handle_object_event(epcis_event)
+        if not self.skip_parsing:
+            super().handle_object_event(epcis_event)
         self.evaluate(epcis_event)
 
     def handle_transformation_event(
@@ -95,7 +100,8 @@ class SimpleOutputParser(QuartetParser):
         list.
         :param epcis_event: The event to insert and inspect.
         """
-        super().handle_transformation_event(epcis_event)
+        if not self.skip_parsing:
+            super().handle_transformation_event(epcis_event)
         self.evaluate(epcis_event)
 
     def evaluate(self, epcis_event):
@@ -122,13 +128,15 @@ class BusinessOutputParser(BusinessEPCISParser):
         stream,
         epcis_output_criteria: EPCISOutputCriteria,
         event_cache_size: int = 1024,
-        recursive_decommission: bool = True
+        recursive_decommission: bool = True,
+        skip_parsing=False,
     ):
         super().__init__(stream, event_cache_size, recursive_decommission)
         self.epcis_output_criteria = epcis_output_criteria
         self.event_evaluation = EventEvaluation()
         self.header_evaluation = HeaderEvaluation()
         self.filtered_events = []
+        self.skip_parsing = skip_parsing
 
     def handle_aggregation_event(
         self,
@@ -140,7 +148,8 @@ class BusinessOutputParser(BusinessEPCISParser):
         :param epcis_event: The event to insert and inspect.
         :return: None
         """
-        super().handle_aggregation_event(epcis_event)
+        if not self.skip_parsing:
+            super().handle_aggregation_event(epcis_event)
         self.evaluate(epcis_event)
 
     def handle_transaction_event(
@@ -153,7 +162,8 @@ class BusinessOutputParser(BusinessEPCISParser):
         :param epcis_event: The event to insert and inspect.
         :return: None
         """
-        super().handle_transaction_event(epcis_event)
+        if not self.skip_parsing:
+            super().handle_transaction_event(epcis_event)
         self.evaluate(epcis_event)
 
     def handle_object_event(self, epcis_event: yes_events.ObjectEvent):
@@ -163,7 +173,8 @@ class BusinessOutputParser(BusinessEPCISParser):
         :param epcis_event: The event to insert and inspect.
         :return: None
         """
-        super().handle_object_event(epcis_event)
+        if not self.skip_parsing:
+            super().handle_object_event(epcis_event)
         self.evaluate(epcis_event)
 
     def handle_transformation_event(
@@ -178,7 +189,8 @@ class BusinessOutputParser(BusinessEPCISParser):
         list.
         :param epcis_event: The event to insert and inspect.
         """
-        super().handle_transformation_event(epcis_event)
+        if not self.skip_parsing:
+            super().handle_transformation_event(epcis_event)
         self.evaluate(epcis_event)
 
     def handle_sbdh(self,
@@ -189,7 +201,8 @@ class BusinessOutputParser(BusinessEPCISParser):
         :param header:
         :return: True or False if the header values match.
         '''
-        super().handle_sbdh(header)
+        if not self.skip_parsing:
+            super().handle_sbdh(header)
         self.evaluate_header(header)
 
     def evaluate_header(self, header: sbdh.StandardBusinessDocumentHeader):

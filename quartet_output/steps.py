@@ -213,26 +213,28 @@ class OutputParsingStep(EPCISParsingStep):
         # get the parser to use from the parameter value.
         # the loose_enforcement parameter is from the base class
         # `EPCISParsingStep` and determines which parser to use.
-        parser_type = self.get_parser_type()
-        self.info('Parser Type %s', str(parser_type))
-        try:
-            if isinstance(data, File):
-                parser = parser_type(data,
-                                     self.epc_output_criteria)
-            else:
-                parser = parser_type(io.BytesIO(data),
-                                     self.epc_output_criteria)
-        except TypeError:
-            parser = SimpleOutputParser(io.BytesIO(data.encode()),
-                                        self.epc_output_criteria)
         self.get_or_create_parameter(
             'Skip Parsing',
             'False',
             'Whether or not to skip the parsing phase and just filter events.')
         skip_parsing = self.get_boolean_parameter('Skip Parsing', False)
+        parser_type = self.get_parser_type()
+        self.info('Parser Type %s', str(parser_type))
+        try:
+            if isinstance(data, File):
+                parser = parser_type(data,
+                                     self.epc_output_criteria,
+                                     skip_parsing=skip_parsing)
+            else:
+                parser = parser_type(io.BytesIO(data),
+                                     self.epc_output_criteria,
+                                     skip_parsing=skip_parsing)
+        except TypeError:
+            parser = SimpleOutputParser(io.BytesIO(data.encode()),
+                                        self.epc_output_criteria)
+
         self.info(_('Parsing the document...'))
-        if not skip_parsing:
-            parser.parse()
+        parser.parse()
         self.info(_('Parsing complete.  %s matching events were found.') %
                   str(len(parser.filtered_events)))
         rule_context.context[

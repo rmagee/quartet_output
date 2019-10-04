@@ -58,4 +58,4 @@ Patches
   in the quartet_templates package.
 * Added a Skip Parsing step parameter to the OutputParsingStep to allow the
   step to just filter events using output criterion without having to parse the
-  inbound message/data.  
+  inbound message/data.
