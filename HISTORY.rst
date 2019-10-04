@@ -56,3 +56,6 @@ Patches
   EPCPyYes during output.  This allows for customized EPCIS output generation
   using custom Jinja2 templates defined on the python path and/or configured
   in the quartet_templates package.
+* Added a Skip Parsing step parameter to the OutputParsingStep to allow the
+  step to just filter events using output criterion without having to parse the
+  inbound message/data.  
