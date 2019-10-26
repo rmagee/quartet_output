@@ -36,6 +36,7 @@ from quartet_output import errors
 from quartet_output.models import EPCISOutputCriteria, EndPoint
 from quartet_output.parsing import SimpleOutputParser, BusinessOutputParser
 from quartet_output.transport.http import HttpTransportMixin
+from quartet_output.transport.tcp import SocketTransportMixin
 from quartet_output.transport.mail import MailMixin
 from quartet_output.transport.sftp import SftpTransportMixin
 from quartet_templates.models import Template
@@ -218,18 +219,23 @@ class OutputParsingStep(EPCISParsingStep):
             'False',
             'Whether or not to skip the parsing phase and just filter events.')
         skip_parsing = self.get_boolean_parameter('Skip Parsing', False)
-        parser_type = self.get_parser_type()
+        parser_type = self.get_parser_type(skip_parsing)
         self.info('Parser Type %s', str(parser_type))
         try:
             if isinstance(data, File):
                 parser = parser_type(data,
                                      self.epc_output_criteria,
                                      skip_parsing=skip_parsing)
+            elif isinstance(data, bytes):
+                parser = parser_type(data.decode("utf-8"),
+                                     self.epc_output_criteria,
+                                     skip_parsing=skip_parsing)
             else:
                 parser = parser_type(io.BytesIO(data),
                                      self.epc_output_criteria,
                                      skip_parsing=skip_parsing)
-        except TypeError:
+        except TypeError as te:
+            self.info(str(te))
             parser = SimpleOutputParser(io.BytesIO(data.encode()),
                                         self.epc_output_criteria)
 
@@ -240,14 +246,26 @@ class OutputParsingStep(EPCISParsingStep):
         rule_context.context[
             ContextKeys.FILTERED_EVENTS_KEY.value] = parser.filtered_events
 
-    def get_parser_type(self):
+    def get_parser_type(self, skip_parsing):
         """
         Override to provide a different parser type.
         :return: The `type` of parser to use.
         """
-        parser_type = SimpleOutputParser if self.loose_enforcement \
-            else BusinessOutputParser
+        if not skip_parsing:
+            parser_type = SimpleOutputParser if self.loose_enforcement \
+                else BusinessOutputParser
+        else:
+            self.info('Useing the internal null parser.')
+            parser_type = self.NullParser
         return parser_type
+
+    class NullParser:
+        def __init__(self, *args, **kwargs) -> None:
+            super().__init__()
+            self.filtered_events = []
+
+        def parse(self, *args, **qwargs):
+            pass
 
 
 class FilteredEventStepMixin:
@@ -632,6 +650,15 @@ class CreateOutputTaskStep(rules.Step):
     the *Endpoint* defined in the output criteria.
     '''
 
+    def __init__(self, db_task: models.Task, **kwargs):
+        super().__init__(db_task, **kwargs)
+        self.run_immediately = self.get_or_create_parameter(
+            'Run Immediately',
+            'False',
+            'Whether or not to execute output '
+            'tasks immediately.'
+        ).lower() in ('true',)
+
     def execute(self, data, rule_context: RuleContext):
         '''
         Checks the context for any data under the OUTBOUND_EPCIS_MESSAGE_KEY
@@ -646,8 +673,7 @@ class CreateOutputTaskStep(rules.Step):
             []
         )
         # see if we are just going to forward the inbound data or not
-        forward_data = self.get_boolean_parameter('Forward Data', False) and \
-                       len(filtered_events) > 0
+        forward_data = self.get_boolean_parameter('Forward Data', False)
         if not forward_data:
             # check the context to see if we have any epcis data to send
             self.info(_('Checking the rule context for any data under the '
@@ -685,8 +711,6 @@ class CreateOutputTaskStep(rules.Step):
             # to the rule engine to create a task to process the message
             # using the rule specified in this step's 'Output Rule' parameter
             # create it in a waiting state until after parameters are supplied
-            run_immediately = self.get_boolean_parameter('run-immediately',
-                                                         default=False)
             if forward_data:
                 self.info(_('The Forward Data parameter was specified. The '
                             'step will send the inbound, unmodifed data to '
@@ -695,7 +719,7 @@ class CreateOutputTaskStep(rules.Step):
                 data, output_rule_name,
                 'Output',
                 task_parameters=[task_param],
-                run_immediately=run_immediately
+                run_immediately=self.run_immediately
             )
             rule_context.context[ContextKeys.CREATED_TASK_NAME_KEY] = task.name
             self.info('Created a new output task %s with rule %s',
@@ -715,7 +739,7 @@ class CreateOutputTaskStep(rules.Step):
 
 
 class TransportStep(rules.Step, HttpTransportMixin, SftpTransportMixin,
-                    MailMixin):
+                    MailMixin, SocketTransportMixin):
     '''
     Uses the transport information within the `EPCISOutputCriteria` placed
     on the context under the EPCIS_OUTPUT_CRITERIA_KEY to send any data that
@@ -830,6 +854,13 @@ class TransportStep(rules.Step, HttpTransportMixin, SftpTransportMixin,
                 file_extension=self.get_parameter('file-extension', 'txt'),
                 mimetype=self.get_parameter('content-type', 'text/plain')
             )
+        elif protocol.lower() == 'socket':
+            self.socket_send(
+                data,
+                rule_context,
+                output_criteria,
+                self.info
+            )
 
     def _supports_protocol(self, endpoint: EndPoint):
         '''
@@ -843,7 +874,8 @@ class TransportStep(rules.Step, HttpTransportMixin, SftpTransportMixin,
         parse_result = urlparse(
             endpoint.urn
         )
-        if parse_result.scheme.lower() in ['http', 'https', 'sftp', 'mailto']:
+        if parse_result.scheme.lower() in ['http', 'https', 'sftp', 'mailto',
+                                                                    'socket']:
             return parse_result.scheme
         else:
             raise errors.ProtocolNotSupportedError(_(
