@@ -226,8 +226,8 @@ class OutputParsingStep(EPCISParsingStep):
                 parser = parser_type(data,
                                      self.epc_output_criteria,
                                      skip_parsing=skip_parsing)
-            elif isinstance(data, bytes):
-                parser = parser_type(data.decode("utf-8"),
+            elif isinstance(data, str):
+                parser = parser_type(io.BytesIO(str.encode(data)),
                                      self.epc_output_criteria,
                                      skip_parsing=skip_parsing)
             else:
