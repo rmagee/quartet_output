@@ -93,7 +93,7 @@ class TestOutputParsing(TestCase):
         step_parameter.save()
         step_parameter = StepParameter()
         step_parameter.step = step
-        step_parameter.name = 'run-immediately'
+        step_parameter.name = 'Run Immediately'
         step_parameter.value = 'True'
         step_parameter.description = 'The name of the rule to create a new ' \
                                      'task with.'

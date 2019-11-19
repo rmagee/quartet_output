@@ -652,12 +652,17 @@ class CreateOutputTaskStep(rules.Step):
 
     def __init__(self, db_task: models.Task, **kwargs):
         super().__init__(db_task, **kwargs)
-        self.run_immediately = self.get_or_create_parameter(
-            'Run Immediately',
-            'False',
-            'Whether or not to execute output '
-            'tasks immediately.'
-        ).lower() in ('true',)
+        try:
+            self.run_immediately = self.get_boolean_parameter(
+                'run-immediately', raise_exception=True
+            )
+        except rules.Step.ParameterNotFoundError:
+            self.run_immediately = self.get_or_create_parameter(
+                'Run Immediately',
+                'False',
+                'Whether or not to execute output '
+                'tasks immediately.'
+            ).lower() in ('true',)
 
     def execute(self, data, rule_context: RuleContext):
         '''
