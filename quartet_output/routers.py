@@ -21,22 +21,22 @@ router = DefaultRouter()
 router.register(
     r'end-points',
     viewsets.EndPointViewSet,
-    base_name='end-points'
+    basename='end-points'
 )
 router.register(
     r'authentication-info',
     viewsets.AuthenticationInfoViewSet,
-    base_name='authentication-info'
+    basename='authentication-info'
 )
 router.register(
     r'epcis-output-criteria',
     viewsets.EPCISOutputCriteriaViewSet,
-    base_name='epcis-output-criteria'
+    basename='epcis-output-criteria'
 )
 router.register(
     r'read-only-epcis-output-criteria',
     viewsets.ReadOnlyCriteriaViewSet,
-    base_name='read-only-epcis-output-criteria'
+    basename='read-only-epcis-output-criteria'
 )
 
 urlpatterns = router.urls
