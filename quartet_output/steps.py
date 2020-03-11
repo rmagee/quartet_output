@@ -180,6 +180,7 @@ class OutputParsingStep(EPCISParsingStep):
             'The name value of an EPCIS Output Criteria configuration.'
         )
         self.epc_output_criteria = self.get_output_criteria()
+        self.parser = None
 
     def get_output_criteria(self):
         self.info('Retrieving the Step\'s EPCIS Output Criteria '
@@ -254,6 +255,7 @@ class OutputParsingStep(EPCISParsingStep):
             self.info(str(te))
             parser = SimpleOutputParser(io.BytesIO(data.encode()),
                                         self.epc_output_criteria)
+        self.parser = parser
         return parser
 
     def get_parser_type(self, skip_parsing):
