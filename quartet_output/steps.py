@@ -221,6 +221,22 @@ class OutputParsingStep(EPCISParsingStep):
         skip_parsing = self.get_boolean_parameter('Skip Parsing', False)
         parser_type = self.get_parser_type(skip_parsing)
         self.info('Parser Type %s', str(parser_type))
+        parser = self.instantiate_parser(data, parser_type, skip_parsing)
+        self.info(_('Parsing the document...'))
+        parser.parse()
+        self.info(_('Parsing complete.  %s matching events were found.') %
+                  str(len(parser.filtered_events)))
+        rule_context.context[
+            ContextKeys.FILTERED_EVENTS_KEY.value] = parser.filtered_events
+
+    def instantiate_parser(self, data, parser_type, skip_parsing):
+        """
+        Overide to gain access to the parser before or after parsing.
+        :param data: The data to parse
+        :param parser_type: The type of parser to instantiate.
+        :param skip_parsing: Whether or not to parse the data.
+        :return: The instantiated parser type.
+        """
         try:
             if isinstance(data, File):
                 parser = parser_type(data,
@@ -238,13 +254,7 @@ class OutputParsingStep(EPCISParsingStep):
             self.info(str(te))
             parser = SimpleOutputParser(io.BytesIO(data.encode()),
                                         self.epc_output_criteria)
-
-        self.info(_('Parsing the document...'))
-        parser.parse()
-        self.info(_('Parsing complete.  %s matching events were found.') %
-                  str(len(parser.filtered_events)))
-        rule_context.context[
-            ContextKeys.FILTERED_EVENTS_KEY.value] = parser.filtered_events
+        return parser
 
     def get_parser_type(self, skip_parsing):
         """
