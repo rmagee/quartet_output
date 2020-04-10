@@ -488,7 +488,7 @@ class AddCommissioningDataStep(rules.Step, FilteredEventStepMixin):
         all_events = self.process_events(all_events)
         self.info('Adding %s Object events to the rule context.',
                   len(all_events))
-        return set(all_events)
+        return all_events
 
     def handle_parent_entries(self, parent_entries: EntryList):
         '''
