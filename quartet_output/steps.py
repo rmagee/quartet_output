@@ -892,7 +892,7 @@ class TransportStep(rules.Step, HttpTransportMixin, SftpTransportMixin,
             endpoint.urn
         )
         if parse_result.scheme.lower() in ['http', 'https', 'sftp', 'mailto',
-                                                                    'socket']:
+                                           'socket']:
             return parse_result.scheme
         else:
             raise errors.ProtocolNotSupportedError(_(
