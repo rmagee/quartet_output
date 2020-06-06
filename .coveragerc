@@ -9,6 +9,8 @@ omit =
     *tests*
     *.tox*
     apps.py
+    ./quartet_output/admin.py
+    ./quartet_output/management/*
 show_missing = True
 exclude_lines =
     raise NotImplementedError
