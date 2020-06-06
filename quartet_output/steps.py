@@ -42,6 +42,8 @@ from quartet_output.transport.sftp import SftpTransportMixin
 from quartet_templates.models import Template
 
 
+
+
 class ContextKeys(Enum):
     """
     Containes Rule Context keys that the steps in this module utilize.
