@@ -4,10 +4,11 @@ QU4RTET OUTPUT
 
 .. image:: https://gitlab.com/serial-lab/quartet_output/badges/master/coverage.svg
    :target: https://gitlab.com/serial-lab/quartet_output/pipelines
-.. image:: https://gitlab.com/serial-lab/quartet_output/badges/master/build.svg
-   :target: https://gitlab.com/serial-lab/quartet_output/commits/master
+.. image:: https://gitlab.com/serial-lab/quartet_output/badges/master/pipeline.svg
+   :target: https://gitlab.com/serial-lab/quartet_output/-/commits/master
 .. image:: https://badge.fury.io/py/quartet_output.svg
     :target: https://badge.fury.io/py/quartet_output
+
 
 Output Rules and logic for the QU4RTET open-source EPCIS / Level-4 
 supply chain and trading-partner messaging framework.
