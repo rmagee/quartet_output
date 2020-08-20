@@ -8,7 +8,9 @@ omit =
     *site-packages*
     *tests*
     *.tox*
-    apps.py
+    ./quartet_output/apps.py
+    ./quartet_output/errors.py
+    ./quartet_output/permissions.py
     ./quartet_output/admin.py
     ./quartet_output/management/*
 show_missing = True

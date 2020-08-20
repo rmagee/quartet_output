@@ -51,27 +51,27 @@ class EPCISOutputCriteria(models.Model):
         verbose_name=_("SBDH Sender Identifier"),
         help_text=_("Typically an SGLN but an identifier that is in the SBDH "
                     "and uniquely identifies a sending entity."),
-        null=True
+        null=True, blank=True
     )
     receiver_identifier = models.CharField(
         max_length=250,
         verbose_name=_("SBDH Receiver Identifier"),
         help_text=_("Typically an SGLN but an identifier that is in the SBDH "
                     "and uniquely identifies a receiving entity."),
-        null=True
+        null=True, blank=True
     )
     event_type = models.CharField(
         max_length=20,
         verbose_name=_("Event Type"),
         help_text=_("The type of EPCIS event."),
-        null=True,
+        null=True, blank=True,
         choices=EVENT_CHOICES
     )
     action = models.CharField(
         max_length=20,
         verbose_name=_("Action"),
         help_text=_("The EPCIS event's ACTION type."),
-        null=True,
+        null=True, blank=True,
         choices=ACTION_CHOICES
     )
     biz_step = models.CharField(
@@ -79,23 +79,23 @@ class EPCISOutputCriteria(models.Model):
         verbose_name=_("Business Step (BizStep)"),
         help_text=_("The business step URN.  Can be a CBV value or any custom"
                     "uri.  If CBV it must be exactly as specified in v1.2"),
-        null=True
+        null=True, blank=True
     )
     disposition = models.CharField(
         max_length=150,
         verbose_name=_("Disposition"),
         help_text=_("A Disposition URN- can be CBV or custom."),
-        null=True
+        null=True, blank=True
     )
     read_point = models.CharField(
         max_length=150,
-        null=True,
+        null=True, blank=True,
         help_text=_('The read point URN.  Typically representing a sub-site.'),
         verbose_name=_('Read Point')
     )
     biz_location = models.CharField(
         max_length=150,
-        null=True,
+        null=True, blank=True,
         help_text=_('The business location URN.  Typically representing '
                     'a site'),
         verbose_name=_('Business Location')
@@ -104,32 +104,32 @@ class EPCISOutputCriteria(models.Model):
         max_length=150,
         verbose_name=_("Source Type"),
         help_text=_("The type of the source- a CBV 1.2 URI or custom URI."),
-        null=True
+        null=True, blank=True
     )
     source_id = models.CharField(
         max_length=200,
         verbose_name=_("Source ID"),
         help_text=_("A URI that identifies the source specified in the "
                     "Source Type field."),
-        null=True
+        null=True, blank=True
     )
     destination_type = models.CharField(
         max_length=150,
         verbose_name=_("Destination Type"),
         help_text=_(
             "The type of the Destination- a CBV 1.2 URI or custom URI."),
-        null=True
+        null=True, blank=True
     )
     destination_id = models.CharField(
         max_length=200,
         verbose_name=_("Destination ID"),
         help_text=_("A URI that identifies the Destination specified in the "
                     "Destination Type field."),
-        null=True
+        null=True, blank=True
     )
     authentication_info = models.ForeignKey(
         'quartet_output.AuthenticationInfo',
-        null=True,
+        null=True, blank=True,
         on_delete=models.SET_NULL,
         verbose_name=_("Authentication Info"),
         help_text=_("The Authentication Info to use."),
@@ -224,17 +224,17 @@ class AuthenticationInfo(models.Model):
         max_length=200,
         verbose_name=_("Description"),
         help_text=_("An optional description."),
-        null=True
+        null=True, blank=True
     )
     private_key = models.TextField(
         verbose_name=_("Private Key"),
         help_text=_("Any private key value if applicable."),
-        null=True
+        null=True, blank=True
     )
     public_key = models.TextField(
         verbose_name=_("Public Key"),
         help_text=_("Any public key info if applicable."),
-        null=True
+        null=True, blank=True
     )
 
     def __str__(self):
