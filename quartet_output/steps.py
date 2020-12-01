@@ -94,6 +94,7 @@ class ContextKeys(Enum):
     OBJECT_EVENTS_KEY = 'OBJECT_EVENTS'
     OUTBOUND_EPCIS_MESSAGE_KEY = 'OUTBOUND_EPCIS_MESSAGE'
     CREATED_TASK_NAME_KEY = 'CREATED_TASK_NAME'
+    LOT_NUMBER = 'LOT_NUMBER'
 
 
 class DynamicTemplateMixin:
@@ -256,7 +257,8 @@ class OutputParsingStep(EPCISParsingStep):
         except TypeError as te:
             self.info(str(te))
             parser = SimpleOutputParser(io.BytesIO(data.encode()),
-                                        self.epc_output_criteria)
+                                        self.epc_output_criteria,
+                                        skip_parsing=skip_parsing)
         self.parser = parser
         return parser
 
@@ -265,13 +267,8 @@ class OutputParsingStep(EPCISParsingStep):
         Override to provide a different parser type.
         :return: The `type` of parser to use.
         """
-        if not skip_parsing:
-            parser_type = SimpleOutputParser if self.loose_enforcement \
-                else BusinessOutputParser
-        else:
-            self.info('Useing the internal null parser.')
-            parser_type = self.NullParser
-        return parser_type
+        return SimpleOutputParser if self.loose_enforcement \
+            else BusinessOutputParser
 
     class NullParser:
         def __init__(self, *args, **kwargs) -> None:

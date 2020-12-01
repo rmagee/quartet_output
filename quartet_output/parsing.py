@@ -47,7 +47,7 @@ class SimpleOutputParser(QuartetParser):
         self.epcis_output_criteria = epcis_output_criteria
         self.event_evaluation = EventEvaluation()
         self.filtered_events = []
-        self.skip_parsing = False
+        self.skip_parsing = skip_parsing
 
     def handle_aggregation_event(
         self,
