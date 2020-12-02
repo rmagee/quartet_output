@@ -556,6 +556,31 @@ class AddEventsByMessageStep(rules.Step, FilteredEventStepMixin):
 
         )
 
+class ForwardDataOutputStep(rules.Step, FilteredEventStepMixin):
+    """
+    If filtered events are found on the context, then this step will
+    put the raw rule data in the OUTBOUND_EPCIS_MESSAGE context key.
+    """
+
+    def execute(self, data, rule_context: RuleContext):
+        self.rule_context = rule_context
+        self.info('Checking for filtered events...')
+        filtered_events = self.get_filtered_events(None) or []
+        if filtered_events:
+            self.info('Found some filtered events...forwarding the '
+                      'rule data.')
+            rule_context.context[
+                ContextKeys.OUTBOUND_EPCIS_MESSAGE_KEY.value
+            ] = data
+        return data
+
+    @property
+    def declared_parameters(self):
+        return {}
+
+    def on_failure(self):
+        self.error('The forward data step has failed.')
+
 
 class EPCPyYesOutputStep(rules.Step, FilteredEventStepMixin):
     """

@@ -105,6 +105,38 @@ class TestQuartetOutput(TestCase):
                     ContextKeys.EPCIS_OUTPUT_CRITERIA_KEY.value)
             )
 
+    def test_rule_with_forward_data(self):
+        self._create_good_ouput_criterion()
+        db_rule = self._create_rule()
+        self._create_step(db_rule)
+        self._create_output_steps(db_rule)
+        self._create_comm_step(db_rule)
+        self._create_forward_data_step(db_rule)
+        db_task = self._create_task(db_rule)
+        curpath = os.path.dirname(__file__)
+        # prepopulate the db
+        self._parse_test_data('data/commission_one_event.xml')
+        self._parse_test_data('data/nested_pack.xml')
+        data_path = os.path.join(curpath, 'data/ship_pallet.xml')
+        with open(data_path, 'r') as data_file:
+            context = execute_rule(data_file.read().encode(), db_task)
+            self.assertEqual(
+                len(context.context[ContextKeys.AGGREGATION_EVENTS_KEY.value]),
+                3,
+                "There should be three filtered events."
+            )
+            for event in context.context[
+                ContextKeys.AGGREGATION_EVENTS_KEY.value]:
+                if event.parent_id in ['urn:epc:id:sgtin:305555.3555555.1',
+                                       'urn:epc:id:sgtin:305555.3555555.2']:
+                    self.assertEqual(len(event.child_epcs), 5)
+                else:
+                    self.assertEqual(len(event.child_epcs), 2)
+            self.assertIsNotNone(
+                context.context.get(
+                    ContextKeys.EPCIS_OUTPUT_CRITERIA_KEY.value)
+            )
+
     def test_rule_with_agg_trigger(self):
         self._create_good_agg_trigger_ouput_criterion()
         db_rule = self._create_rule()
@@ -578,6 +610,15 @@ class TestQuartetOutput(TestCase):
                 name='JSON',
                 value=True
             )
+
+    def _create_forward_data_step(self, rule):
+        step = Step()
+        step.rule = rule
+        step.order = 4
+        step.name = 'Forward Data'
+        step.step_class = 'quartet_output.steps.ForwardDataOutputStep'
+        step.description = 'Just forwards the data.'
+        step.save()
 
     def _create_task(self, rule):
         task = Task()
