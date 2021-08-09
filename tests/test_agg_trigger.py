@@ -179,7 +179,7 @@ class TestOutputParsing(TestCase):
                 12,
                 "There should be twelve filtered events."
             )
-            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY]
+            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY.value]
             task = Task.objects.get(name=task_name)
             self.assertEqual(task.status, 'FINISHED')
             print(context.context[ContextKeys.OUTBOUND_EPCIS_MESSAGE_KEY.value])

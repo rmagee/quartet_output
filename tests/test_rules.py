@@ -179,7 +179,7 @@ class TestQuartetOutput(TestCase):
                     self.assertEqual(len(event.child_epcs), 5)
                 else:
                     self.assertEqual(len(event.child_epcs), 2)
-            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY]
+            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY.value]
             execute_queued_task(task_name=task_name)
             task = Task.objects.get(name=task_name)
             self.assertEqual(task.status, 'FINISHED')
@@ -214,7 +214,7 @@ class TestQuartetOutput(TestCase):
                     self.assertEqual(len(event.child_epcs), 5)
                 else:
                     self.assertEqual(len(event.child_epcs), 2)
-            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY]
+            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY.value]
             execute_queued_task(task_name=task_name)
             task = Task.objects.get(name=task_name)
             self.assertEqual(task.status, 'FINISHED')
@@ -251,7 +251,7 @@ class TestQuartetOutput(TestCase):
                     self.assertEqual(len(event.child_epcs), 5)
                 else:
                     self.assertEqual(len(event.child_epcs), 2)
-            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY]
+            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY.value]
             execute_queued_task(task_name=task_name)
             task = Task.objects.get(name=task_name)
             self.assertEqual(task.status, 'FINISHED')
@@ -277,7 +277,7 @@ class TestQuartetOutput(TestCase):
                 ContextKeys.FILTERED_EVENTS_KEY.value
             ]:
                 self.assertIsInstance(event, sbdheader)
-            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY]
+            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY.value]
             execute_queued_task(task_name=task_name)
             task = Task.objects.get(name=task_name)
             self.assertEqual(task.status, 'FINISHED')
@@ -312,7 +312,7 @@ class TestQuartetOutput(TestCase):
                     self.assertEqual(len(event.child_epcs), 5)
                 else:
                     self.assertEqual(len(event.child_epcs), 2)
-            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY]
+            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY.value]
             execute_queued_task(task_name=task_name)
             task = Task.objects.get(name=task_name)
             self.assertEqual(task.status, 'FINISHED')
@@ -724,7 +724,7 @@ class TestSFTPTransport(TestQuartetOutput):
                 ContextKeys.FILTERED_EVENTS_KEY.value
             ]:
                 self.assertIsInstance(event, sbdheader)
-            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY]
+            task_name = context.context[ContextKeys.CREATED_TASK_NAME_KEY.value]
             execute_queued_task(task_name=task_name)
             task = Task.objects.get(name=task_name)
             self.assertEqual(task.status, 'FINISHED')
