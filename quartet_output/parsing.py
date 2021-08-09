@@ -18,7 +18,7 @@ from EPCPyYes.core.SBDH import sbdh, template_sbdh
 from EPCPyYes.core.v1_2 import events as yes_events
 from EPCPyYes.core.v1_2 import json_decoders
 from quartet_epcis.models import headers
-from quartet_epcis.parsing.business_parser import BusinessEPCISParser
+from quartet_epcis.parsing.context_parser import BusinessEPCISParser
 from quartet_epcis.parsing.parser import QuartetParser
 from quartet_output.evaluation import EventEvaluation, HeaderEvaluation
 from quartet_output.models import EPCISOutputCriteria
@@ -43,7 +43,7 @@ class SimpleOutputParser(QuartetParser):
         recursive_decommission: bool = True,
         skip_parsing = False
     ):
-        super().__init__(stream, event_cache_size, recursive_decommission)
+        super().__init__(stream, event_cache_size)
         self.epcis_output_criteria = epcis_output_criteria
         self.event_evaluation = EventEvaluation()
         self.filtered_events = []

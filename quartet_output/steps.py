@@ -762,7 +762,7 @@ class CreateOutputTaskStep(rules.Step):
                 task_parameters=[task_param],
                 run_immediately=self.run_immediately
             )
-            rule_context.context[ContextKeys.CREATED_TASK_NAME_KEY] = task.name
+            rule_context.context[ContextKeys.CREATED_TASK_NAME_KEY.value] = task.name
             self.info('Created a new output task %s with rule %s',
                       task.name, output_rule_name)
 
