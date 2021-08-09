@@ -4,7 +4,7 @@ stages:
     - pypi
 
 services:
-  - name: mendhak/http-https-echo:latest
+  - name: mendhak/http-https-echo:18
     alias: testhost
   - name: atmoz/sftp
     alias: testsftphost
