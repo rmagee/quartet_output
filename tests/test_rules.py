@@ -408,7 +408,8 @@ class TestQuartetOutput(TestCase):
             except EPCISOutputCriteria.DoesNotExist:
                 pass
         stop = time.time()
-        self.assertGreaterEqual((stop - start), 3, 'The rule did not pause '
+        execution_time = round((stop - start))
+        self.assertGreaterEqual(execution_time, 3, 'The rule did not pause '
                                                    'long enough.')
 
     def _create_good_ouput_criterion(self):
