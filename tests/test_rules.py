@@ -467,7 +467,7 @@ class TestQuartetOutput(TestCase):
 
     def _create_endpoint(self):
         ep = models.EndPoint()
-        ep.urn = getattr(settings, 'TEST_SERVER', 'http://testhost')
+        ep.urn = getattr(settings, 'TEST_SERVER', 'http://testhost:8080')
         ep.name = 'Test EndPoint'
         ep.save()
         return ep
